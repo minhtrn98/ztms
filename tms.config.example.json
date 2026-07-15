@@ -1,0 +1,38 @@
+{
+  "reposRoot": "D:\\TMS\\Projects",
+  "deployRoot": "D:\\TMS\\Deployments",
+  "processTag": "tms",
+  "services": [
+    { "name": "tms.driverservice", "port": 10011, "enabled": true },
+    { "name": "tms.costservice", "port": 10030, "enabled": true },
+    { "name": "TMS.RouteService", "port": 10050, "enabled": true },
+    { "name": "TMS.OrderService", "port": 10060, "enabled": true },
+    { "name": "TMS.PlanningService", "port": 10070, "enabled": true },
+    { "name": "tms.fleetservice", "port": 10000, "enabled": true },
+    { "name": "TMS.AuditService", "port": 10090, "enabled": false },
+    { "name": "TMS.NotificationService", "port": 10020, "enabled": false },
+    { "name": "tms.trackingservice", "port": 10100, "enabled": false },
+    { "name": "TMS.FileService", "port": 10040, "enabled": false },
+    { "name": "TMS.ReportService", "port": 10082, "enabled": false }
+  ],
+  "pullIgnoreFolders": ["scripts", "db_backups"],
+  "database": {
+    "localHost": "localhost",
+    "localUser": "postgres",
+    "localPasswordEnvVar": "TMS_LOCAL_DB_PASSWORD",
+    "devHost": "",
+    "devUser": "dev",
+    "devPasswordEnvVar": "DEV_DB_PASSWORD",
+    "backupFolder": "db_backups",
+    "databases": ["FleetDB", "RouteDB", "PlanningDB", "CostDB", "OrderDB", "DriverDB", "ReportDB", "NotificationDB"],
+    "excludeTableDataPattern": ""
+  },
+  "redis": {
+    "devHost": "",
+    "devPort": 6379,
+    "devPasswordEnvVar": "DEV_REDIS_PW",
+    "container": "my-redis",
+    "volume": "redis_data",
+    "backupFolder": "db_backups"
+  }
+}
