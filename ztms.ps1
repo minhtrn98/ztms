@@ -10,8 +10,9 @@
 Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
 
 $entries = @(
-    [ordered]@{ Path = "001_run-services.ps1"; Desc = "" }
+    # [ordered]@{ Path = "001_run-services.ps1"; Desc = "" }
     [ordered]@{ Path = "002_run-published.ps1"; Desc = "" }
+    [ordered]@{ Path = "003_run-frontend.ps1"; Desc = "" }
     [ordered]@{ Path = "010_pull-all.ps1"; Desc = "" }
     [ordered]@{ Path = "090_publish.ps1"; Desc = "" }
     [ordered]@{ Path = "800_stop-services.ps1"; Desc = "" }

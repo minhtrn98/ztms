@@ -87,6 +87,18 @@ Prefer to set it up by hand? Clone the repo yourself, then run
    target script directly (not through `ztms`) in the same terminal when you
    need that.
 
+## Uninstall
+
+```powershell
+Remove-Item "$env:LocalAppData\Microsoft\WindowsApps\ztms.cmd"
+```
+
+That's the only thing `install-ztms.ps1` puts outside this repo — deleting
+it removes the global `ztms` command (open a new terminal to confirm it's
+gone). To remove the scripts entirely, also delete the folder you cloned
+into — note `tms.config.json` and `tms.env.local` live there too, and
+aren't recoverable once deleted (they're gitignored, never pushed anywhere).
+
 ## Updating
 
 `ztms.cmd` points at `ztms.ps1` by absolute path — it doesn't copy anything.
@@ -112,6 +124,7 @@ repo to a different path.
 | `901_set-env.ps1` | Load `tms.env.local` into the session (+ optionally persist at user level) |
 | `001_run-services.ps1` | `dotnet run` selected services (dev mode) |
 | `002_run-published.ps1` | Run selected services from `dotnet publish` output |
+| `003_run-frontend.ps1` | Build (optional) and run the frontend — blocks in this terminal, not a new window |
 | `010_pull-all.ps1` | Parallel `git pull` across all repos under `reposRoot` |
 | `090_publish.ps1` | `dotnet publish` selected services to `deployRoot` |
 | `800_stop-services.ps1` | Stop all processes tagged with `processTag` |
@@ -139,6 +152,7 @@ working directory, e.g.:
 | `database.*` | Local/dev Postgres connection info + list of database names to manage |
 | `database.excludeTableDataPattern` | Optional `pg_dump --exclude-table-data` pattern (e.g. a job-scheduler table like `qrtz_*`) to skip row data for during clone |
 | `redis.*` | Dev Redis host/port + local docker container/volume names |
+| `frontend.*` | `{ path, buildCommand, startCommand }` for `003_run-frontend.ps1` — `path` is absolute or relative to `reposRoot`; `buildCommand` is optional (skipped if blank), `startCommand` is required |
 
 Nothing sensitive belongs in this file — only paths, names, ports, and
 hostnames. Passwords always come from environment variables or an

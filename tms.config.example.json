@@ -34,5 +34,10 @@
     "container": "my-redis",
     "volume": "redis_data",
     "backupFolder": "db_backups"
+  },
+  "frontend": {
+    "path": "",
+    "buildCommand": "yarn build",
+    "startCommand": "yarn start"
   }
 }

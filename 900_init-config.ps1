@@ -81,6 +81,16 @@ $redisDevPort = Read-WithDefault "Dev Redis port" "6379"
 $redisContainer = Read-WithDefault "Local Redis container name" "my-redis"
 $redisVolume = Read-WithDefault "Local Redis docker volume name" "redis_data"
 
+# --- Frontend (optional) ------------------------------------------------------
+Write-Host "`n--- Frontend (optional) ---" -ForegroundColor Magenta
+$fePath = Read-Host "Frontend folder (absolute, or relative to reposRoot; blank to skip 003_run-frontend.ps1)"
+$feBuildCommand = ""
+$feStartCommand = ""
+if (-not [string]::IsNullOrWhiteSpace($fePath)) {
+    $feBuildCommand = Read-WithDefault "Build command (blank to skip building)" "yarn build"
+    $feStartCommand = Read-WithDefault "Start command" "yarn start"
+}
+
 # --- Assemble config -----------------------------------------------------
 $config = [ordered]@{
     reposRoot         = $reposRoot
@@ -106,6 +116,11 @@ $config = [ordered]@{
         container         = $redisContainer
         volume            = $redisVolume
         backupFolder      = "db_backups"
+    }
+    frontend          = [ordered]@{
+        path         = $fePath
+        buildCommand = $feBuildCommand
+        startCommand = $feStartCommand
     }
 }
 

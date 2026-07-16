@@ -96,6 +96,9 @@ Test-Step "001_run-services.ps1 exits cleanly with no services configured" {
 Test-Step "002_run-published.ps1 exits cleanly with no services configured" {
     Invoke-Guarded "002_run-published.ps1" "No services configured"
 }
+Test-Step "003_run-frontend.ps1 exits cleanly with no frontend configured" {
+    Invoke-Guarded "003_run-frontend.ps1" "No frontend configured"
+}
 Test-Step "db/clone-db-dev.ps1 exits cleanly with no databases configured" {
     Invoke-Guarded "db\clone-db-dev.ps1" "No databases configured"
 }
