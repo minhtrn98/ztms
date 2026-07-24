@@ -15,7 +15,7 @@ Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
 
 $groups = @(
     [ordered]@{
-        Name    = "Backend"
+        Name    = "BACKEND"
         Entries = @(
             [ordered]@{ DisplayName = "run-published"; Path = "002_run-published.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "publish"; Path = "090_publish.ps1"; Desc = "" }
@@ -25,27 +25,27 @@ $groups = @(
         )
     }
     [ordered]@{
-        Name    = "Frontend"
+        Name    = "FRONTEND"
         Entries = @(
             [ordered]@{ DisplayName = "run"; Path = "003_run-frontend.ps1"; Desc = "" }
         )
     }
     [ordered]@{
-        Name    = "DB"
+        Name    = "DATABASE"
         Entries = @(
             [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "db\clone-db-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] restore"; Path = "db\restore-db-dev.ps1"; Desc = "" }
         )
     }
     [ordered]@{
-        Name    = "Redis"
+        Name    = "REDIS"
         Entries = @(
             [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "redis\clone-redis-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] restore"; Path = "redis\restore-redis-dev.ps1"; Desc = "" }
         )
     }
     [ordered]@{
-        Name    = "Setup"
+        Name    = "SETUP"
         Entries = @(
             [ordered]@{ DisplayName = "init-config"; Path = "900_init-config.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "set-env"; Path = "901_set-env.ps1"; Desc = "" }
