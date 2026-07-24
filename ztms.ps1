@@ -30,7 +30,7 @@ while ($true) {
     Write-Host "=== TMS scripts ===" -ForegroundColor Magenta
     Write-Host "$PSScriptRoot`n" -ForegroundColor Gray
 
-    $labels = $entries | ForEach-Object { "{0,-32} {1}" -f $_.Name, $_.Desc }
+    $labels = $entries | ForEach-Object { "{0,-32} {1}" -f $_.DisplayName, $_.Desc }
     $choice = Show-Menu -Labels $labels -Prompt "Choose a script to run"
 
     if ($choice -lt 0) {
