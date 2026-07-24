@@ -11,16 +11,18 @@ Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
 
 $entries = @(
     # [ordered]@{ Path = "001_run-services.ps1"; Desc = "" }
-    [ordered]@{ Path = "002_run-published.ps1"; Desc = "" }
-    [ordered]@{ Path = "003_run-frontend.ps1"; Desc = "" }
-    [ordered]@{ Path = "010_pull-all.ps1"; Desc = "" }
-    [ordered]@{ Path = "090_publish.ps1"; Desc = "" }
-    [ordered]@{ Path = "800_stop-services.ps1"; Desc = "" }
-    [ordered]@{ Path = "redis\clone-redis-dev.ps1"; Desc = "" }
-    [ordered]@{ Path = "db\clone-db-dev.ps1"; Desc = "" }
-    [ordered]@{ Path = "900_init-config.ps1"; Desc = "" }
-    [ordered]@{ Path = "901_set-env.ps1"; Desc = "" }
-    [ordered]@{ Path = "902_update.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "run-publish-be"; Path = "002_run-published.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "run-frontend"; Path = "003_run-frontend.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "pull-all"; Path = "010_pull-all.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "publish-be"; Path = "090_publish.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "stop-be"; Path = "800_stop-services.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "clone-redis-dev"; Path = "redis\clone-redis-dev.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "restore-redis-dev"; Path = "redis\restore-redis-dev.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "clone-db-dev"; Path = "db\clone-db-dev.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "restore-db-dev"; Path = "db\restore-db-dev.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "init-config"; Path = "900_init-config.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "set-env"; Path = "901_set-env.ps1"; Desc = "" }
+    [ordered]@{ DisplayName = "update"; Path = "902_update.ps1"; Desc = "" }
 )
 
 while ($true) {
@@ -28,7 +30,7 @@ while ($true) {
     Write-Host "=== TMS scripts ===" -ForegroundColor Magenta
     Write-Host "$PSScriptRoot`n" -ForegroundColor Gray
 
-    $labels = $entries | ForEach-Object { "{0,-32} {1}" -f $_.Path, $_.Desc }
+    $labels = $entries | ForEach-Object { "{0,-32} {1}" -f $_.Name, $_.Desc }
     $choice = Show-Menu -Labels $labels -Prompt "Choose a script to run"
 
     if ($choice -lt 0) {

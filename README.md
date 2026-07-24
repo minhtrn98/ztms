@@ -129,9 +129,11 @@ repo to a different path.
 | `090_publish.ps1` | `dotnet publish` selected services to `deployRoot` |
 | `800_stop-services.ps1` | Stop all processes tagged with `processTag` |
 | `db/clone-db-dev.ps1` | Clone configured Postgres databases from a dev server to local |
+| `db/restore-db-dev.ps1` | Re-apply the last downloaded dumps (no dev connection) onto local Postgres |
 | `db/terminate-connections.ps1` | Kill active local connections to configured databases |
 | `db/drop-all.ps1` | **Destructive** — drops all configured local databases (asks to confirm) |
 | `redis/clone-redis-dev.ps1` | Sync a Redis RDB dump from dev to the local docker container |
+| `redis/restore-redis-dev.ps1` | Re-apply the last downloaded dump (no dev connection) to the local docker container |
 
 All scripts assume they're run with your services' `reposRoot` as the
 working directory, e.g.:

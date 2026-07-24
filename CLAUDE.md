@@ -114,9 +114,18 @@ then writes a worker script to disk and launches one `powershell` process
 per database to drop/recreate/restore data first and build indexes last
 (faster than restoring with indexes already present) — each worker runs in
 its own visible window and writes a `.status` file so progress is visible
-per-database. `redis/clone-redis-dev.ps1` is simpler: export RDB from dev
+per-database. `db/restore-db-dev.ps1` reuses the last downloaded
+`.dump`/`-schema-pre.sql`/`-schema-post.sql` files from `database.backupFolder`
+and reruns just the terminate + worker-launch phases (same worker script,
+same drop/recreate/pre-schema/data/post-schema order) — no dev connection,
+no dev password, and it guards up front that all three files exist per
+configured database before launching anything. `redis/clone-redis-dev.ps1`
+is simpler: export RDB from dev
 via `docker exec redis-cli --rdb`, copy out, stop the local container,
-replace the volume's dump file, restart.
+replace the volume's dump file, restart. `redis/restore-redis-dev.ps1` reuses
+the last downloaded `dump-dev.rdb` from `redis.backupFolder` and replays just
+the stop/replace/restart steps — no dev connection, no password needed —
+for re-applying a backup without re-syncing from dev.
 
 **Distribution mechanism.** `install.ps1` (meant to be run via
 `irm <raw-github-url> | iex`) clones this repo and calls
