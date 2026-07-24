@@ -60,22 +60,32 @@ $config = Get-TmsConfig
 - `modules/ProjectMenu.psm1` — shared console UI: `Show-ProjectSelection`
   (multi-select checkbox menu, arrow keys + Enter, "Select All" and
   "Confirm & Run" pseudo-items, no selection = select all), `Show-Menu`
-  (single-select arrow-key menu used by `ztms.ps1` itself), `Confirm-Prompt`
-  (y/N prompt). These have a specific ConPTY quirk workaround — see the
-  comment above `Draw-Menu` in each function before changing cursor-position
+  (plain single-select arrow-key menu, generic/reusable), `Show-GroupedMenu`
+  (single-select menu flattened across groups with non-selectable group
+  headers — what `ztms.ps1` itself uses), `Confirm-Prompt` (y/N prompt).
+  These have a specific ConPTY quirk workaround — see the comment above
+  `Draw-Menu` in each function before changing cursor-position
   logic; Windows Terminal / VS Code's integrated terminal both report
   `BufferHeight == WindowHeight`, so rows must be reserved (blank lines
   written) before capturing `$top`, or Up/Down redraws break once the menu
   is taller than the visible window.
 
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
-reachable as the global `ztms` command once installed). It lists every
-script and, on selection, launches it as a **separate child `pwsh` process**
-(`& pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath`) rather than
-dot-sourcing it — so a script's `exit` only ends that script, and the menu
-always regains control afterward. This also means environment variables set
-by one menu pick (e.g. `901_set-env.ps1`) do **not** propagate to a script
-picked afterward in the same `ztms` session; persisting at the user level
+reachable as the global `ztms` command once installed). It's a `$groups`
+array (`BE`, `FE`, `DB`, `Redis`, `Setup`), each holding an `Entries` list of
+`{ DisplayName, Path, Desc }`, rendered always-expanded and flattened by
+`Show-GroupedMenu` (`modules/ProjectMenu.psm1`): group names print as
+non-selectable headers, Up/Down skip over them so only actual scripts get
+highlighted. On selection, the chosen script launches as a **separate child
+`pwsh` process** (`& pwsh -NoProfile -ExecutionPolicy Bypass -File
+$scriptPath`) rather than being dot-sourced — so a script's `exit` only ends
+that script, and the menu always regains control afterward. Escape exits
+`ztms.ps1`. Adding a new script means adding an entry to the right group's
+`Entries` list in `ztms.ps1` (create a new group if it doesn't fit
+`BE`/`FE`/`DB`/`Redis`/`Setup`) — it is not auto-discovered from the
+filesystem. This also means environment variables set by one menu pick
+(e.g. `901_set-env.ps1`) do **not** propagate to a script picked afterward
+in the same `ztms` session; persisting at the user level
 (`[System.Environment]::SetEnvironmentVariable($k, $v, "User")`) is the
 workaround, offered interactively by `901_set-env.ps1`.
 

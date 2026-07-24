@@ -144,6 +144,92 @@ function Show-Menu {
     return $selectedIndex
 }
 
+function Show-GroupedMenu {
+    <#
+    Single-select arrow-key menu, expanded and flattened across groups.
+    Each group's Name is rendered as a non-selectable header; Up/Down skip
+    over headers so only actual entries can be highlighted. Returns the
+    selected entry object (from Group.Entries), or $null on Escape.
+    #>
+    param(
+        [Parameter(Mandatory)]$Groups,
+        [string]$Prompt = "Select an option"
+    )
+
+    $rows = @()
+    foreach ($group in $Groups) {
+        $rows += [ordered]@{ IsHeader = $true; Label = $group.Name; Entry = $null }
+        foreach ($entry in $group.Entries) {
+            $label = "{0,-32} {1}" -f $entry.DisplayName, $entry.Desc
+            $rows += [ordered]@{ IsHeader = $false; Label = $label; Entry = $entry }
+        }
+    }
+
+    $selectableIndices = @()
+    for ($i = 0; $i -lt $rows.Count; $i++) { if (-not $rows[$i].IsHeader) { $selectableIndices += $i } }
+
+    if ($selectableIndices.Count -eq 0) {
+        Write-Host "No entries to show." -ForegroundColor Red
+        return $null
+    }
+
+    $cursor = $selectableIndices[0]
+
+    function Draw-Menu {
+        param($Top)
+        [Console]::SetCursorPosition(0, $Top)
+        for ($i = 0; $i -lt $rows.Count; $i++) {
+            if ($rows[$i].IsHeader) {
+                Write-Host ("🔘 $($rows[$i].Label)".PadRight(70)) -ForegroundColor Magenta
+            } else {
+                $pointer = if ($i -eq $cursor) { ">" } else { " " }
+                $color = if ($i -eq $cursor) { "Yellow" } else { "White" }
+                Write-Host ("$pointer   $($rows[$i].Label)".PadRight(70)) -ForegroundColor $color
+            }
+        }
+    }
+
+    Write-Host "$Prompt (Up/Down: move, Enter: select, Esc: quit):" -ForegroundColor Cyan
+
+    # See the comment in Show-ProjectSelection — reserve rows before computing
+    # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
+    # the cursor position once the list is taller than the visible window.
+    1..$rows.Count | ForEach-Object { Write-Host "" }
+    $top = [Console]::CursorTop - $rows.Count
+    [Console]::CursorVisible = $false
+    Draw-Menu -Top $top
+
+    $selectedEntry = $null
+    $done = $false
+    while (-not $done) {
+        $key = [Console]::ReadKey($true)
+        switch ($key.Key) {
+            'UpArrow' {
+                $pos = [array]::IndexOf($selectableIndices, $cursor)
+                $pos = ($pos - 1 + $selectableIndices.Count) % $selectableIndices.Count
+                $cursor = $selectableIndices[$pos]
+                Draw-Menu -Top $top
+            }
+            'DownArrow' {
+                $pos = [array]::IndexOf($selectableIndices, $cursor)
+                $pos = ($pos + 1) % $selectableIndices.Count
+                $cursor = $selectableIndices[$pos]
+                Draw-Menu -Top $top
+            }
+            'Enter' {
+                $selectedEntry = $rows[$cursor].Entry
+                $done = $true
+            }
+            'Escape' {
+                $selectedEntry = $null
+                $done = $true
+            }
+        }
+    }
+    [Console]::CursorVisible = $true
+    return $selectedEntry
+}
+
 function Confirm-Prompt {
     param(
         [string]$Message,
@@ -156,4 +242,4 @@ function Confirm-Prompt {
     return ($ans -match '^[yY]')
 }
 
-Export-ModuleMember -Function Show-ProjectSelection, Show-Menu, Confirm-Prompt
+Export-ModuleMember -Function Show-ProjectSelection, Show-Menu, Show-GroupedMenu, Confirm-Prompt
