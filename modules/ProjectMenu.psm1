@@ -180,7 +180,7 @@ function Show-GroupedMenu {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
-                Write-Host ("📁 $($rows[$i].Label)".PadRight(70)) -ForegroundColor Magenta
+                Write-Host ("▸ $($rows[$i].Label)".PadRight(70)) -ForegroundColor DarkCyan
             } else {
                 $pointer = if ($i -eq $cursor) { ">" } else { " " }
                 $color = if ($i -eq $cursor) { "Yellow" } else { "White" }
