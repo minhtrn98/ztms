@@ -9,14 +9,21 @@ $config = Get-TmsConfig
 $tag = $config.processTag
 
 # Match by command line, not window title: cmd.exe is launched with
-# "/k Title [$tag] ..." (see 001_run-services.ps1 / 002_run-published.ps1), and
+# "/k Title [$tag] ..." (see backend/run.ps1 / backend/run-published.ps1), and
 # that whole argument string — including the tag — is part of cmd.exe's own
 # CommandLine, regardless of whether it opened its own console window or is
 # hosted as a tab inside Windows Terminal / VS Code (in that case cmd.exe has
 # no MainWindowHandle of its own, so MainWindowTitle is always empty even
 # though the process is very much alive).
+#
+# Match the literal "Title [$tag]" (brackets included), not a bare "*$tag*"
+# substring — a bare substring also matches unrelated cmd.exe processes whose
+# command line happens to contain the tag text anywhere (e.g. the "ztms.cmd"
+# shim itself when tag is "tms"), which would stop windows that have nothing
+# to do with this stack. Square brackets are -like wildcard metacharacters,
+# so they're backtick-escaped to match them literally.
 $taggedCmdProcs = Get-CimInstance Win32_Process -Filter "name = 'cmd.exe'" |
-    Where-Object { $_.CommandLine -like "*$tag*" }
+    Where-Object { $_.CommandLine -like "*Title ``[$tag``]*" }
 
 if ($taggedCmdProcs.Count -eq 0) {
     Write-Host "No processes tagged '$tag' found." -ForegroundColor DarkGreen
