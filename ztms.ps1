@@ -15,26 +15,18 @@ Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
 
 $groups = @(
     [ordered]@{
+        Name    = "COMMON"
+        Entries = @(
+            [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "" }
+        )
+    }
+    [ordered]@{
         Name    = "BACKEND"
         Entries = @(
-            [ordered]@{ DisplayName = "run-published"; Path = "002_run-published.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "publish"; Path = "090_publish.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "stop-all"; Path = "800_stop-services.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "pull-all"; Path = "010_pull-all.ps1"; Desc = "" }
-            # [ordered]@{ DisplayName = "build-run"; Path = "001_run-services.ps1"; Desc = "" }
-        )
-    }
-    [ordered]@{
-        Name    = "FRONTEND"
-        Entries = @(
-            [ordered]@{ DisplayName = "run"; Path = "003_run-frontend.ps1"; Desc = "" }
-        )
-    }
-    [ordered]@{
-        Name    = "DATABASE"
-        Entries = @(
-            [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "db\clone-db-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[dev] restore"; Path = "db\restore-db-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "run-published"; Path = "backend\run-published.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "publish"; Path = "backend\publish.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "stop-all"; Path = "backend\stop.ps1"; Desc = "" }
+            # [ordered]@{ DisplayName = "build-run"; Path = "backend\run.ps1"; Desc = "" }
         )
     }
     [ordered]@{
@@ -45,11 +37,24 @@ $groups = @(
         )
     }
     [ordered]@{
+        Name    = "DATABASE"
+        Entries = @(
+            [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "db\clone-db-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[dev] restore"; Path = "db\restore-db-dev.ps1"; Desc = "" }
+        )
+    }
+    [ordered]@{
+        Name    = "FRONTEND"
+        Entries = @(
+            [ordered]@{ DisplayName = "run"; Path = "frontend\run.ps1"; Desc = "" }
+        )
+    }
+    [ordered]@{
         Name    = "SETUP"
         Entries = @(
-            [ordered]@{ DisplayName = "init-config"; Path = "900_init-config.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "set-env"; Path = "901_set-env.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "update"; Path = "902_update.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
         )
     }
 )
