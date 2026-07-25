@@ -8,10 +8,10 @@
 # unless you choose to persist them (see prompt below).
 # ======================================
 
-Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
+Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\ProjectMenu.psm1") -Force
 
-$envFile = Join-Path $PSScriptRoot "tms.env.local"
-$exampleFile = Join-Path $PSScriptRoot "tms.env.example"
+$envFile = Join-Path (Split-Path $PSScriptRoot -Parent) "tms.env.local"
+$exampleFile = Join-Path (Split-Path $PSScriptRoot -Parent) "tms.env.example"
 
 if (-not (Test-Path $envFile)) {
     Write-Host "tms.env.local not found." -ForegroundColor Yellow

@@ -3,7 +3,7 @@
 # Reads reposRoot/pullIgnoreFolders from tms.config.json — run 900_init-config.ps1 first.
 # ======================================
 
-Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
+Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\TmsConfig.psm1") -Force
 
 $config = Get-TmsConfig
 $ignore = @($config.pullIgnoreFolders)
@@ -39,7 +39,7 @@ $changed = $results | Where-Object {
     $_.Output -notmatch "Already up to date" -and $_.Output -notmatch "fatal:"
 } | Select-Object -ExpandProperty Name
 
-$pullStateFile = Join-Path $PSScriptRoot ".pull-changed.json"
+$pullStateFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".pull-changed.json"
 ConvertTo-Json -InputObject @($changed) | Set-Content -Path $pullStateFile -Encoding UTF8
 
 if ($changed.Count -gt 0) {

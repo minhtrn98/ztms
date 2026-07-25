@@ -7,9 +7,9 @@
 #      synthetic config — no real Docker/dotnet/Postgres/Redis is touched.
 #
 # What it does NOT check (do this manually, once, before a real release):
-#   - Actually running a service (`001_run-services.ps1` against a real repo)
+#   - Actually running a service (`backend/run.ps1` against a real repo)
 #   - Actually cloning a DB or Redis cache from a real dev server
-#   - `900_init-config.ps1` / `901_set-env.ps1`'s interactive prompts
+#   - `setup/init-config.ps1` / `setup/set-env.ps1`'s interactive prompts
 #
 # Requires PowerShell 7+ (pwsh) — same requirement as the scripts themselves.
 # ======================================
@@ -90,14 +90,14 @@ function Invoke-Guarded {
     }
 }
 
-Test-Step "001_run-services.ps1 exits cleanly with no services configured" {
-    Invoke-Guarded "001_run-services.ps1" "No services configured"
+Test-Step "backend/run.ps1 exits cleanly with no services configured" {
+    Invoke-Guarded "backend\run.ps1" "No services configured"
 }
-Test-Step "002_run-published.ps1 exits cleanly with no services configured" {
-    Invoke-Guarded "002_run-published.ps1" "No services configured"
+Test-Step "backend/run-published.ps1 exits cleanly with no services configured" {
+    Invoke-Guarded "backend\run-published.ps1" "No services configured"
 }
-Test-Step "003_run-frontend.ps1 exits cleanly with no frontend configured" {
-    Invoke-Guarded "003_run-frontend.ps1" "No frontend configured"
+Test-Step "frontend/run.ps1 exits cleanly with no frontend configured" {
+    Invoke-Guarded "frontend\run.ps1" "No frontend configured"
 }
 Test-Step "db/clone-db-dev.ps1 exits cleanly with no databases configured" {
     Invoke-Guarded "db\clone-db-dev.ps1" "No databases configured"
@@ -111,11 +111,11 @@ Test-Step "db/terminate-connections.ps1 exits cleanly with no databases configur
 Test-Step "redis/clone-redis-dev.ps1 exits cleanly with no devHost configured" {
     Invoke-Guarded "redis\clone-redis-dev.ps1" "No redis.devHost configured"
 }
-Test-Step "800_stop-services.ps1 reports no tagged processes" {
-    Invoke-Guarded "800_stop-services.ps1" "No processes tagged"
+Test-Step "backend/stop.ps1 reports no tagged processes" {
+    Invoke-Guarded "backend\stop.ps1" "No processes tagged"
 }
-Test-Step "010_pull-all.ps1 runs to completion against an empty reposRoot" {
-    $full = Join-Path $testRoot "010_pull-all.ps1"
+Test-Step "common/pull-all.ps1 runs to completion against an empty reposRoot" {
+    $full = Join-Path $testRoot "common\pull-all.ps1"
     & pwsh -NoProfile -File $full | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Exit code $LASTEXITCODE" }
 }

@@ -3,7 +3,7 @@
 # Reads processTag from tms.config.json — run 900_init-config.ps1 first.
 # ======================================
 
-Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
+Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\TmsConfig.psm1") -Force
 
 $config = Get-TmsConfig
 $tag = $config.processTag

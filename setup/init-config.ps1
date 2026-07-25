@@ -12,7 +12,7 @@ function Read-WithDefault {
     return $ans
 }
 
-$configPath = Join-Path $PSScriptRoot "tms.config.json"
+$configPath = Join-Path (Split-Path $PSScriptRoot -Parent) "tms.config.json"
 if (Test-Path $configPath) {
     Write-Host "Config already exists at $configPath" -ForegroundColor Yellow
     Write-Host "# Overwrite it? [y/N] (Default: N): " -ForegroundColor Cyan -NoNewline

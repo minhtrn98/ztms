@@ -6,7 +6,7 @@
 # Only re-run install-ztms.ps1 if you move this repo to a different path.
 # ======================================
 
-$scriptsRepoRoot = $PSScriptRoot
+$scriptsRepoRoot = Split-Path $PSScriptRoot -Parent
 
 if (-not (Test-Path (Join-Path $scriptsRepoRoot ".git"))) {
     Write-Host "$scriptsRepoRoot doesn't look like a git repo — nothing to pull." -ForegroundColor Red
