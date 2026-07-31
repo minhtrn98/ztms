@@ -119,6 +119,9 @@ Test-Step "common/pull-all.ps1 runs to completion against an empty reposRoot" {
     & pwsh -NoProfile -File $full | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Exit code $LASTEXITCODE" }
 }
+Test-Step "common/open-vscode.ps1 exits cleanly with no services configured" {
+    Invoke-Guarded "common\open-vscode.ps1" "No services configured"
+}
 
 # --- 5. Cleanup --------------------------------------------------------------
 Remove-Item -Recurse -Force $testRoot -ErrorAction SilentlyContinue

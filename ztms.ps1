@@ -18,6 +18,7 @@ $groups = @(
         Name    = "COMMON"
         Entries = @(
             [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "open-vscode"; Path = "common\open-vscode.ps1"; Desc = "" }
         )
     }
     [ordered]@{
