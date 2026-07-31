@@ -177,10 +177,13 @@ function Show-GroupedMenu {
 
     function Draw-Menu {
         param($Top)
+        $activeHeaderIndex = 0
+        for ($i = 0; $i -lt $rows.Count; $i++) { if ($rows[$i].IsHeader -and $i -le $cursor) { $activeHeaderIndex = $i } }
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
-                Write-Host ("▸ $($rows[$i].Label)".PadRight(70)) -ForegroundColor Magenta
+                $headerColor = if ($i -eq $activeHeaderIndex) { "Magenta" } else { "Gray" }
+                Write-Host ("▸ $($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
             } else {
                 $pointer = if ($i -eq $cursor) { ">" } else { " " }
                 $color = if ($i -eq $cursor) { "Yellow" } else { "White" }
