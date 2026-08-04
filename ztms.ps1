@@ -51,6 +51,14 @@ $groups = @(
         )
     }
     [ordered]@{
+        Name    = "ANDROID"
+        Entries = @(
+            [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
+        )
+    }
+    [ordered]@{
         Name    = "SETUP"
         Entries = @(
             [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }

@@ -12,7 +12,7 @@ paths, ports, and hostnames live in a gitignored `tms.config.json`, generated
 by `900_init-config.ps1`.
 
 There is no build step and no package manager — this is a flat collection of
-PowerShell 7+ (`pwsh`) scripts plus two shared modules under `modules/`. All
+PowerShell 7+ (`pwsh`) scripts plus shared modules under `modules/`. All
 scripts require PowerShell 7+ specifically because several use
 `ForEach-Object -Parallel`.
 
@@ -39,12 +39,12 @@ the existing pattern.
 
 ## Architecture
 
-**Config flows one way, through two shared modules.** `tms.config.json`
+**Config flows one way, through shared modules.** `tms.config.json`
 (gitignored, created by `900_init-config.ps1`, schema documented in
 `tms.config.example.json`) is the single source of machine-specific truth —
 `reposRoot`, `deployRoot`, `processTag`, `services[]` (name/port/enabled),
-`pullIgnoreFolders`, `database.*`, `redis.*`, `frontend.*`. Every numbered
-script starts with:
+`pullIgnoreFolders`, `database.*`, `redis.*`, `frontend.*`, `android.*`.
+Every numbered script starts with:
 
 ```powershell
 Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
@@ -69,6 +69,14 @@ $config = Get-TmsConfig
   `BufferHeight == WindowHeight`, so rows must be reserved (blank lines
   written) before capturing `$top`, or Up/Down redraws break once the menu
   is taller than the visible window.
+- `modules/Android.psm1` — Android emulator helpers built on top of
+  `config.android.emulatorPath` (no separate config for `adb.exe`; it's
+  derived as `<emulatorPath>/../platform-tools/adb.exe`, falling back to a
+  bare `adb` on PATH): `Get-TmsAndroidEmulatorExe`/`Get-TmsAndroidAdbExe`
+  resolve and guard-check the exes, `Get-TmsAndroidAvds` shells out to
+  `emulator -list-avds`, and `Select-TmsAvd` wraps that with the
+  `Show-Menu` picker (from `ProjectMenu.psm1`, which callers must also
+  import) — shared by all three `android/*.ps1` scripts.
 
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
 reachable as the global `ztms` command once installed). It's a `$groups`

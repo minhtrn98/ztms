@@ -39,5 +39,8 @@
     "path": "",
     "buildCommand": "yarn build",
     "startCommand": "yarn start"
+  },
+  "android": {
+    "emulatorPath": "C:\\Program Files (x86)\\Android\\android-sdk\\emulator"
   }
 }

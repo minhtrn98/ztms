@@ -91,6 +91,10 @@ if (-not [string]::IsNullOrWhiteSpace($fePath)) {
     $feStartCommand = Read-WithDefault "Start command" "yarn start"
 }
 
+# --- Android (optional) --------------------------------------------------
+Write-Host "`n--- Android emulator (optional) ---" -ForegroundColor Magenta
+$androidEmulatorPath = Read-WithDefault "Android SDK 'emulator' folder (blank to skip android\*.ps1 scripts)" "C:\Program Files (x86)\Android\android-sdk\emulator"
+
 # --- Assemble config -----------------------------------------------------
 $config = [ordered]@{
     reposRoot         = $reposRoot
@@ -121,6 +125,9 @@ $config = [ordered]@{
         path         = $fePath
         buildCommand = $feBuildCommand
         startCommand = $feStartCommand
+    }
+    android           = [ordered]@{
+        emulatorPath = $androidEmulatorPath
     }
 }
 

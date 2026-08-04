@@ -122,6 +122,15 @@ Test-Step "common/pull-all.ps1 runs to completion against an empty reposRoot" {
 Test-Step "common/open-vscode.ps1 exits cleanly with no services configured" {
     Invoke-Guarded "common\open-vscode.ps1" "No services configured"
 }
+Test-Step "android/start.ps1 exits cleanly with no android.emulatorPath configured" {
+    Invoke-Guarded "android\start.ps1" "No android.emulatorPath configured"
+}
+Test-Step "android/start-default.ps1 exits cleanly with no android.emulatorPath configured" {
+    Invoke-Guarded "android\start-default.ps1" "No android.emulatorPath configured"
+}
+Test-Step "android/stop.ps1 exits cleanly with no android.emulatorPath configured" {
+    Invoke-Guarded "android\stop.ps1" "No android.emulatorPath configured"
+}
 
 # --- 5. Cleanup --------------------------------------------------------------
 Remove-Item -Recurse -Force $testRoot -ErrorAction SilentlyContinue
