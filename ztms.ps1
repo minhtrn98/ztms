@@ -19,6 +19,7 @@ $groups = @(
         Entries = @(
             [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "open-vscode"; Path = "common\open-vscode.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "open-working-folder"; Path = "common\open-working-folder.ps1"; Desc = "" }
         )
     }
     [ordered]@{
@@ -48,6 +49,7 @@ $groups = @(
         Name    = "FRONTEND"
         Entries = @(
             [ordered]@{ DisplayName = "run"; Path = "frontend\run.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "open-vscode"; Path = "frontend\open-vscode.ps1"; Desc = "" }
         )
     }
     [ordered]@{

@@ -99,6 +99,9 @@ Test-Step "backend/run-published.ps1 exits cleanly with no services configured" 
 Test-Step "frontend/run.ps1 exits cleanly with no frontend configured" {
     Invoke-Guarded "frontend\run.ps1" "No frontend configured"
 }
+Test-Step "frontend/open-vscode.ps1 exits cleanly with no frontend configured" {
+    Invoke-Guarded "frontend\open-vscode.ps1" "No frontend configured"
+}
 Test-Step "db/clone-db-dev.ps1 exits cleanly with no databases configured" {
     Invoke-Guarded "db\clone-db-dev.ps1" "No databases configured"
 }
