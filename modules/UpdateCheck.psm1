@@ -22,8 +22,8 @@ function Test-TmsUpdateAvailable {
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [int]$CacheHours = 6,
-        [int]$FetchTimeoutSeconds = 60
+        [int]$CacheHours = 0,
+        [int]$FetchTimeoutSeconds = 4
     )
 
     $cachePath = Join-Path $RepoRoot ".update-check-cache.json"
