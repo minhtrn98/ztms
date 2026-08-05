@@ -1,5 +1,7 @@
 # Shared interactive checkbox menu, deduplicated from the original per-script copies.
 
+Import-Module (Join-Path $PSScriptRoot "MenuTheme.psm1") -Force
+
 function Show-ProjectSelection {
     <#
     Interactive checkbox menu: Up/Down to move, Enter to toggle an item
@@ -38,16 +40,16 @@ function Show-ProjectSelection {
                 $line = "$pointer $mark $($menuItems[$i])".PadRight(60)
             }
             if ($i -eq $cursor) {
-                Write-Host $line -ForegroundColor Cyan
+                Write-Host $line -ForegroundColor $MenuTheme.Cursor
             } elseif ($i -ne $confirmIndex -and $checked[$i]) {
-                Write-Host $line -ForegroundColor Green
+                Write-Host $line -ForegroundColor $MenuTheme.Checked
             } else {
-                Write-Host $line -ForegroundColor Gray
+                Write-Host $line -ForegroundColor $MenuTheme.Normal
             }
         }
     }
 
-    Write-Host "Select projects (Up/Down: move, Enter: toggle / confirm, Tab: jump to confirm, Esc: cancel - none checked = all):" -ForegroundColor DarkGray
+    Write-Host "Select projects (Up/Down: move, Enter: toggle / confirm, Tab: jump to confirm, Esc: cancel - none checked = all):" -ForegroundColor $MenuTheme.Hint
 
     # Reserve the exact rows the menu needs before computing $top. On terminals
     # without real scrollback exposed via the Console API (Windows Terminal / VS
@@ -90,7 +92,7 @@ function Show-ProjectSelection {
     [Console]::CursorVisible = $true
 
     if ($cancelled) {
-        Write-Host "Cancelled." -ForegroundColor Red
+        Write-Host "Cancelled." -ForegroundColor $MenuTheme.Error
         exit 0
     }
 
@@ -123,14 +125,14 @@ function Show-Menu {
             $pointer = if ($i -eq $cursor) { ">" } else { " " }
             $line = "$pointer $($Labels[$i])".PadRight(70)
             if ($i -eq $cursor) {
-                Write-Host $line -ForegroundColor Cyan
+                Write-Host $line -ForegroundColor $MenuTheme.Cursor
             } else {
-                Write-Host $line -ForegroundColor Gray
+                Write-Host $line -ForegroundColor $MenuTheme.Normal
             }
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, Enter: select, Esc: quit):" -ForegroundColor DarkGray
+    Write-Host "$Prompt (Up/Down: move, Enter: select, Esc: quit):" -ForegroundColor $MenuTheme.Hint
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
@@ -186,7 +188,7 @@ function Show-GroupedMenu {
     for ($i = 0; $i -lt $rows.Count; $i++) { if (-not $rows[$i].IsHeader) { $selectableIndices += $i } }
 
     if ($selectableIndices.Count -eq 0) {
-        Write-Host "No entries to show." -ForegroundColor Red
+        Write-Host "No entries to show." -ForegroundColor $MenuTheme.Error
         return $null
     }
 
@@ -208,21 +210,21 @@ function Show-GroupedMenu {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
-                $headerColor = if ($i -eq $activeHeaderIndex) { "DarkCyan" } else { "Gray" }
+                $headerColor = if ($i -eq $activeHeaderIndex) { $MenuTheme.HeaderActive } else { $MenuTheme.HeaderInactive }
                 Write-Host ("$($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
             } else {
                 $pointer = if ($i -eq $cursor) { "▸" } else { " " }
                 $line = "$pointer   $($rows[$i].Label)".PadRight(70)
                 if ($i -eq $cursor) {
-                    Write-Host $line -ForegroundColor Cyan
+                    Write-Host $line -ForegroundColor $MenuTheme.Cursor
                 } else {
-                    Write-Host $line -ForegroundColor Gray
+                    Write-Host $line -ForegroundColor $MenuTheme.Normal
                 }
             }
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor Yellow
+    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor $MenuTheme.Hint
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
@@ -278,7 +280,7 @@ function Confirm-Prompt {
         [bool]$DefaultYes = $true
     )
     $hint = if ($DefaultYes) { "[Y/n] (Default: Y)" } else { "[y/N] (Default: N)" }
-    Write-Host "# $Message $hint : " -ForegroundColor Cyan -NoNewline
+    Write-Host "# $Message $hint : " -ForegroundColor $MenuTheme.Prompt -NoNewline
     $ans = Read-Host
     if ([string]::IsNullOrWhiteSpace($ans)) { return $DefaultYes }
     return ($ans -match '^[yY]')
