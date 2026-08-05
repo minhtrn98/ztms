@@ -60,14 +60,14 @@ $groups = @(
             # [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
         )
     }
-    # [ordered]@{
-    #     Name    = "SETUP"
-    #     Entries = @(
-    #         [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
-    #         [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
-    #         [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
-    #     )
-    # }
+    [ordered]@{
+        Name    = "SETUP"
+        Entries = @(
+            # [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
+            # [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
+        )
+    }
 )
 
 while ($true) {
