@@ -208,7 +208,7 @@ function Show-GroupedMenu {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
-                $headerColor = if ($i -eq $activeHeaderIndex) { "DarkCyan" } else { "DarkGray" }
+                $headerColor = if ($i -eq $activeHeaderIndex) { "DarkCyan" } else { "Gray" }
                 Write-Host ("$($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
             } else {
                 $pointer = if ($i -eq $cursor) { "▸" } else { " " }
@@ -222,7 +222,7 @@ function Show-GroupedMenu {
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor DarkGray
+    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor Yellow
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
