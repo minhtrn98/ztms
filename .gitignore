@@ -1,4 +1,5 @@
 tms.config.json
 tms.env.local
 .pull-changed.json
+.update-check-cache.json
 db/db_clone_worker.ps1

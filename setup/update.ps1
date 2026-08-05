@@ -29,5 +29,9 @@ if ($pullExitCode -ne 0) {
 } elseif ($output -match "Already up to date") {
     Write-Host "Already up to date." -ForegroundColor Green
 } else {
+    # Clear the cached "update available" check so the next ztms.ps1 launch
+    # re-evaluates against the VERSION we just pulled, instead of showing a
+    # stale notice for up to $CacheHours.
+    Remove-Item (Join-Path $scriptsRepoRoot ".update-check-cache.json") -ErrorAction SilentlyContinue
     Write-Host "Updated. 'ztms' already points at this checkout — nothing else to do." -ForegroundColor Green
 }

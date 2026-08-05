@@ -198,11 +198,11 @@ function Show-GroupedMenu {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
-                $headerColor = if ($i -eq $activeHeaderIndex) { "Magenta" } else { "DarkGray" }
-                Write-Host ("▸ $($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
+                $headerColor = if ($i -eq $activeHeaderIndex) { "Yellow" } else { "DarkGray" }
+                Write-Host ("$($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
             } else {
-                $pointer = if ($i -eq $cursor) { ">" } else { " " }
-                $color = if ($i -eq $cursor) { "Yellow" } else { "White" }
+                $pointer = if ($i -eq $cursor) { "▸" } else { " " }
+                $color = if ($i -eq $cursor) { "Magenta" } else { "White" }
                 Write-Host ("$pointer   $($rows[$i].Label)".PadRight(70)) -ForegroundColor $color
             }
         }

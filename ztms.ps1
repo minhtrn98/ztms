@@ -12,6 +12,7 @@
 # ======================================
 
 Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "modules\UpdateCheck.psm1") -Force
 
 $groups = @(
     [ordered]@{
@@ -74,6 +75,11 @@ while ($true) {
     Clear-Host
     Write-Host "=== TMS scripts ===" -ForegroundColor Magenta
     Write-Host "$PSScriptRoot`n" -ForegroundColor Gray
+
+    $latestVersion = Test-TmsUpdateAvailable -RepoRoot $PSScriptRoot
+    if ($latestVersion) {
+        Write-Host "New version available: v$latestVersion (you have v$(Get-TmsLocalVersion -RepoRoot $PSScriptRoot)) - run 'update' from SETUP to upgrade.`n" -ForegroundColor Yellow
+    }
 
     $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run"
 
