@@ -31,17 +31,23 @@ function Show-ProjectSelection {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $menuItems.Count; $i++) {
             $pointer = if ($i -eq $cursor) { ">" } else { " " }
-            $color = if ($i -eq $cursor) { "Yellow" } elseif ($i -ne $confirmIndex -and $checked[$i]) { "Green" } else { "White" }
             if ($i -eq $confirmIndex) {
-                Write-Host ("$pointer     $($menuItems[$i])".PadRight(60)) -ForegroundColor $color
+                $line = "$pointer     $($menuItems[$i])".PadRight(60)
             } else {
                 $mark = if ($checked[$i]) { "[x]" } else { "[ ]" }
-                Write-Host ("$pointer $mark $($menuItems[$i])".PadRight(60)) -ForegroundColor $color
+                $line = "$pointer $mark $($menuItems[$i])".PadRight(60)
+            }
+            if ($i -eq $cursor) {
+                Write-Host $line -ForegroundColor Cyan
+            } elseif ($i -ne $confirmIndex -and $checked[$i]) {
+                Write-Host $line -ForegroundColor Green
+            } else {
+                Write-Host $line -ForegroundColor Gray
             }
         }
     }
 
-    Write-Host "Select projects (Up/Down: move, Enter: toggle / confirm, Tab: jump to confirm, Esc: cancel - none checked = all):" -ForegroundColor Cyan
+    Write-Host "Select projects (Up/Down: move, Enter: toggle / confirm, Tab: jump to confirm, Esc: cancel - none checked = all):" -ForegroundColor DarkGray
 
     # Reserve the exact rows the menu needs before computing $top. On terminals
     # without real scrollback exposed via the Console API (Windows Terminal / VS
@@ -84,7 +90,7 @@ function Show-ProjectSelection {
     [Console]::CursorVisible = $true
 
     if ($cancelled) {
-        Write-Host "Cancelled." -ForegroundColor DarkYellow
+        Write-Host "Cancelled." -ForegroundColor Red
         exit 0
     }
 
@@ -115,12 +121,16 @@ function Show-Menu {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $count; $i++) {
             $pointer = if ($i -eq $cursor) { ">" } else { " " }
-            $color = if ($i -eq $cursor) { "Yellow" } else { "White" }
-            Write-Host ("$pointer $($Labels[$i])".PadRight(70)) -ForegroundColor $color
+            $line = "$pointer $($Labels[$i])".PadRight(70)
+            if ($i -eq $cursor) {
+                Write-Host $line -ForegroundColor Cyan
+            } else {
+                Write-Host $line -ForegroundColor Gray
+            }
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, Enter: select, Esc: quit):" -ForegroundColor Cyan
+    Write-Host "$Prompt (Up/Down: move, Enter: select, Esc: quit):" -ForegroundColor DarkGray
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
@@ -198,17 +208,21 @@ function Show-GroupedMenu {
         [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
-                $headerColor = if ($i -eq $activeHeaderIndex) { "Yellow" } else { "DarkGray" }
+                $headerColor = if ($i -eq $activeHeaderIndex) { "DarkCyan" } else { "DarkGray" }
                 Write-Host ("$($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
             } else {
                 $pointer = if ($i -eq $cursor) { "▸" } else { " " }
-                $color = if ($i -eq $cursor) { "Magenta" } else { "White" }
-                Write-Host ("$pointer   $($rows[$i].Label)".PadRight(70)) -ForegroundColor $color
+                $line = "$pointer   $($rows[$i].Label)".PadRight(70)
+                if ($i -eq $cursor) {
+                    Write-Host $line -ForegroundColor Cyan
+                } else {
+                    Write-Host $line -ForegroundColor Gray
+                }
             }
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor Cyan
+    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor DarkGray
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
