@@ -147,9 +147,11 @@ function Show-Menu {
 function Show-GroupedMenu {
     <#
     Single-select arrow-key menu, expanded and flattened across groups.
-    Each group's Name is rendered as a non-selectable header; Up/Down skip
-    over headers so only actual entries can be highlighted. Returns the
-    selected entry object (from Group.Entries), or $null on Escape.
+    Each group's Name is rendered as a non-selectable header, numbered
+    (1-9) so pressing that digit key jumps the cursor straight to the
+    group's first entry; Up/Down skip over headers so only actual entries
+    can be highlighted. Returns the selected entry object (from
+    Group.Entries), or $null on Escape.
     #>
     param(
         [Parameter(Mandatory)]$Groups,
@@ -157,8 +159,13 @@ function Show-GroupedMenu {
     )
 
     $rows = @()
+    $groupHeaderIndex = @{}
+    $groupNumber = 0
     foreach ($group in $Groups) {
-        $rows += [ordered]@{ IsHeader = $true; Label = $group.Name; Entry = $null }
+        $groupNumber++
+        $headerLabel = if ($groupNumber -le 9) { "[$groupNumber] $($group.Name)" } else { $group.Name }
+        $rows += [ordered]@{ IsHeader = $true; Label = $headerLabel; Entry = $null }
+        $groupHeaderIndex[$groupNumber] = $rows.Count - 1
         foreach ($entry in $group.Entries) {
             $label = "{0,-32} {1}" -f $entry.DisplayName, $entry.Desc
             $rows += [ordered]@{ IsHeader = $false; Label = $label; Entry = $entry }
@@ -171,6 +178,15 @@ function Show-GroupedMenu {
     if ($selectableIndices.Count -eq 0) {
         Write-Host "No entries to show." -ForegroundColor Red
         return $null
+    }
+
+    # Map each group number to the first selectable row in that group, so a
+    # digit keypress can jump straight there.
+    $groupJumpTarget = @{}
+    foreach ($num in $groupHeaderIndex.Keys) {
+        $headerIdx = $groupHeaderIndex[$num]
+        $target = $selectableIndices | Where-Object { $_ -gt $headerIdx } | Select-Object -First 1
+        if ($null -ne $target) { $groupJumpTarget[$num] = $target }
     }
 
     $cursor = $selectableIndices[0]
@@ -192,7 +208,7 @@ function Show-GroupedMenu {
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, Enter: select, Esc: quit):" -ForegroundColor Cyan
+    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor Cyan
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
@@ -226,6 +242,15 @@ function Show-GroupedMenu {
             'Escape' {
                 $selectedEntry = $null
                 $done = $true
+            }
+            default {
+                if ($key.KeyChar -match '^[1-9]$') {
+                    $num = [int]"$($key.KeyChar)"
+                    if ($groupJumpTarget.ContainsKey($num)) {
+                        $cursor = $groupJumpTarget[$num]
+                        Draw-Menu -Top $top
+                    }
+                }
             }
         }
     }
