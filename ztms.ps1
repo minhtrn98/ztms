@@ -11,8 +11,17 @@
 # highlighted. Escape exits.
 # ======================================
 
+Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "modules\UpdateCheck.psm1") -Force
+
+# Config may not exist yet on a first run (SETUP > init-config creates it), so
+# the hide list is best-effort — no config just means nothing is hidden.
+$hiddenMenuItems = @()
+try {
+    $config = Get-TmsConfig
+    if ($config.hiddenMenuItems) { $hiddenMenuItems = @($config.hiddenMenuItems | ForEach-Object { $_.Replace('\', '/').ToLowerInvariant() }) }
+} catch {}
 
 $groups = @(
     [ordered]@{
@@ -29,7 +38,7 @@ $groups = @(
             [ordered]@{ DisplayName = "run-published"; Path = "backend\run-published.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "publish"; Path = "backend\publish.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "stop-all"; Path = "backend\stop.ps1"; Desc = "" }
-            # [ordered]@{ DisplayName = "build-run"; Path = "backend\run.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "build-run"; Path = "backend\run.ps1"; Desc = "" }
         )
     }
     [ordered]@{
@@ -58,18 +67,24 @@ $groups = @(
         Entries = @(
             [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "" }
-            # [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
         )
     }
     [ordered]@{
         Name    = "SETUP"
         Entries = @(
-            # [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
-            # [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
         )
     }
 )
+
+if ($hiddenMenuItems.Count -gt 0) {
+    foreach ($group in $groups) {
+        $group.Entries = @($group.Entries | Where-Object { $hiddenMenuItems -notcontains $_.Path.Replace('\', '/').ToLowerInvariant() })
+    }
+}
 
 while ($true) {
     Clear-Host

@@ -42,5 +42,6 @@
   },
   "android": {
     "emulatorPath": "C:\\Program Files (x86)\\Android\\android-sdk\\emulator"
-  }
+  },
+  "hiddenMenuItems": ["setup/init-config.ps1", "setup/set-env.ps1", "android/stop.ps1"]
 }

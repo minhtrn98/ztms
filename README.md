@@ -155,6 +155,7 @@ working directory, e.g.:
 | `database.excludeTableDataPattern` | Optional `pg_dump --exclude-table-data` pattern (e.g. a job-scheduler table like `qrtz_*`) to skip row data for during clone |
 | `redis.*` | Dev Redis host/port + local docker container/volume names |
 | `frontend.*` | `{ path, buildCommand, startCommand }` for `003_run-frontend.ps1` — `path` is absolute or relative to `reposRoot`; `buildCommand` is optional (skipped if blank), `startCommand` is required |
+| `hiddenMenuItems` | Optional array of script paths (e.g. `"backend/run.ps1"`, matched against each menu entry's `Path`, `\`/`/` and case insensitive) to hide from the `ztms` menu — the scripts still exist and run directly, they're just left off the picker |
 
 Nothing sensitive belongs in this file — only paths, names, ports, and
 hostnames. Passwords always come from environment variables or an
