@@ -18,10 +18,17 @@ Import-Module (Join-Path $PSScriptRoot "modules\UpdateCheck.psm1") -Force
 # Config may not exist yet on a first run (SETUP > init-config creates it), so
 # the hide list is best-effort — no config just means nothing is hidden.
 $hiddenMenuItems = @()
+$config = $null
 try {
     $config = Get-TmsConfig
     if ($config.hiddenMenuItems) { $hiddenMenuItems = @($config.hiddenMenuItems | ForEach-Object { $_.Replace('\', '/').ToLowerInvariant() }) }
 } catch {}
+
+# install-latest needs android.deploy.apiKey configured to call the deploy
+# API — hide it rather than showing an entry that will just guard-clause exit.
+if (-not ($config -and $config.android -and $config.android.deploy -and $config.android.deploy.apiKey)) {
+    $hiddenMenuItems += "android/install-latest.ps1"
+}
 
 $groups = @(
     [ordered]@{
@@ -68,6 +75,7 @@ $groups = @(
             [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "install-latest"; Path = "android\install-latest.ps1"; Desc = "" }
         )
     }
     [ordered]@{

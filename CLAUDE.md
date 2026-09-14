@@ -76,7 +76,16 @@ $config = Get-TmsConfig
   resolve and guard-check the exes, `Get-TmsAndroidAvds` shells out to
   `emulator -list-avds`, and `Select-TmsAvd` wraps that with the
   `Show-Menu` picker (from `ProjectMenu.psm1`, which callers must also
-  import) — shared by all three `android/*.ps1` scripts.
+  import) — shared by `android/start*.ps1` and `android/stop.ps1`.
+  `Get-TmsAndroidDeployConfig` guard-checks `config.android.deploy`
+  (`apiUrl`/`apiKey`/`appId` for the internal DeployApp API — `apiKey` here
+  is an app identifier the API expects in its body, not a login secret, so
+  it isn't routed through `Get-TmsSecret`); `Get-TmsAndroidRunningDevices`/
+  `Select-TmsRunningAndroidDevice` resolve currently-running emulator
+  serials to their AVD names via `adb devices` + `adb emu avd name` — used
+  by `android/install-latest.ps1`, which fetches the latest `DEPLOY`-status
+  build from that API, downloads the APK, `adb push`es + `pm install -r`s it
+  onto the picked device, then deletes both the device and local copies.
 
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
 reachable as the global `ztms` command once installed). It's a `$groups`
