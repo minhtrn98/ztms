@@ -71,6 +71,7 @@ $syntheticConfig = [ordered]@{
     database          = [ordered]@{
         localHost = "localhost"; localUser = "postgres"; localPasswordEnvVar = "TMS_LOCAL_DB_PASSWORD"
         devHost = ""; devUser = "dev"; devPasswordEnvVar = "DEV_DB_PASSWORD"
+        stgHost = ""; stgUser = "stg"; stgPasswordEnvVar = "STG_DB_PASSWORD"
         backupFolder = "_db_backups"; databases = @(); excludeTableDataPattern = ""
     }
     redis             = [ordered]@{
@@ -105,6 +106,9 @@ Test-Step "frontend/open-vscode.ps1 exits cleanly with no frontend configured" {
 }
 Test-Step "db/clone-db-dev.ps1 exits cleanly with no databases configured" {
     Invoke-Guarded "db\clone-db-dev.ps1" "No databases configured"
+}
+Test-Step "db/clone-db-stg.ps1 exits cleanly with no databases configured" {
+    Invoke-Guarded "db\clone-db-stg.ps1" "No databases configured"
 }
 Test-Step "db/drop-all.ps1 exits cleanly with no databases configured" {
     Invoke-Guarded "db\drop-all.ps1" "No databases configured"

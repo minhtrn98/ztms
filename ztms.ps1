@@ -65,6 +65,8 @@ $groups = @(
         Entries = @(
             [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "db\clone-db-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] restore"; Path = "db\restore-db-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[stg] clone-restore"; Path = "db\clone-db-stg.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[stg] restore"; Path = "db\restore-db-stg.ps1"; Desc = "" }
         )
     }
     [ordered]@{

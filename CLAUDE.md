@@ -141,33 +141,42 @@ scripts; `090_publish.ps1` reads it back to pre-check those services in its
 selection menu, and trims consumed entries back out after publishing. This
 is the only file-based handoff between scripts.
 
-**DB clone pipeline (`db/clone-db-dev.ps1`)** is the most involved script:
-it terminates local connections (delegates to `terminate-connections.ps1`),
-`pg_dump`s each configured database from the dev host in parallel
-(`ForEach-Object -Parallel`, `ThrottleLimit 8`), splits the schema into
-pre-data (tables, no indexes) and post-data (indexes/constraints) sections,
-then writes a worker script to disk and launches one `powershell` process
-per database to drop/recreate/restore data first and build indexes last
-(faster than restoring with indexes already present) — each worker runs in
-its own visible window and writes a `.status` file so progress is visible
-per-database. `db/restore-db-dev.ps1` reuses the last downloaded
-`.dump`/`-schema-pre.sql`/`-schema-post.sql` files from `database.backupFolder`
-and reruns just the terminate + worker-launch phases (same worker script,
-same drop/recreate/pre-schema/data/post-schema order) — no dev connection,
-no dev password, and it guards up front that all three files exist per
-configured database before launching anything. Redis clone/restore is
-simpler and, like the android install-latest scripts, is built as thin
-per-environment wrappers (`redis/clone-redis-dev.ps1`/
-`redis/clone-redis-stg.ps1`, `redis/restore-redis-dev.ps1`/
-`redis/restore-redis-stg.ps1`) around two shared functions in
-`modules/Redis.psm1`: `Invoke-TmsRedisClone -Config -Environment` exports an
-RDB from the remote (`redis.<env>Host/Port/PasswordEnvVar`, e.g. `devHost`/
-`stgHost`) via `docker exec redis-cli --rdb`, copies it out, stops the local
-container, replaces the volume's dump file, and restarts; `Invoke-TmsRedisRestore
--Config -Environment` reuses the last downloaded `dump-<env>.rdb` from
-`redis.backupFolder` and replays just the stop/replace/restart steps — no
-remote connection, no password needed — for re-applying a backup without
-re-syncing.
+**DB clone pipeline** is the most involved, and — like android's
+install-latest and redis's clone/restore — is built as thin per-environment
+wrappers (`db/clone-db-dev.ps1`/`db/clone-db-stg.ps1`,
+`db/restore-db-dev.ps1`/`db/restore-db-stg.ps1`) around shared functions in
+`modules/Db.psm1`. `Invoke-TmsDbClone -Config -Environment -ScriptsRoot`
+terminates local connections (delegates to `terminate-connections.ps1`,
+resolved via `-ScriptsRoot` since the module itself lives in `modules/`),
+`pg_dump`s each configured database from `database.<env>Host/User/
+PasswordEnvVar` (e.g. `devHost`/`stgHost`) in parallel (`ForEach-Object
+-Parallel`, `ThrottleLimit 8`), splits the schema into pre-data (tables, no
+indexes) and post-data (indexes/constraints) sections, then hands off to
+`Invoke-TmsDbLaunchRestoreWorkers`, which writes `db_clone_worker.ps1` to
+disk (via `Write-TmsDbWorkerScript` — gitignored, regenerated every run) and
+launches one `powershell` process per database to drop/recreate/restore
+data first and build indexes last (faster than restoring with indexes
+already present) — each worker runs in its own visible window and writes a
+`.status` file so progress is visible per-database. `Invoke-TmsDbRestore
+-Config -Environment -ScriptsRoot` reuses the last downloaded
+`.dump`/`-schema-pre.sql`/`-schema-post.sql` files from
+`database.backupFolder` and reruns just the terminate + worker-launch
+phases (same worker script, same drop/recreate/pre-schema/data/post-schema
+order) — no remote connection, no remote password, and it guards up front
+that all three files exist per configured database before launching
+anything. Backup/schema/log/status file names for `dev` stay suffix-free
+(unchanged from before per-environment support existed, so existing dev
+backups keep working); every other environment's files get a
+`-<environment>` suffix (`Get-TmsDbFileSuffix`) so they never collide with
+dev's in the same `backupFolder`. Redis clone/restore follows the identical
+shape but is simpler — two shared functions in `modules/Redis.psm1`:
+`Invoke-TmsRedisClone -Config -Environment` exports an RDB from the remote
+(`redis.<env>Host/Port/PasswordEnvVar`) via `docker exec redis-cli --rdb`,
+copies it out, stops the local container, replaces the volume's dump file,
+and restarts; `Invoke-TmsRedisRestore -Config -Environment` reuses the last
+downloaded `dump-<env>.rdb` from `redis.backupFolder` and replays just the
+stop/replace/restart steps — no remote connection, no password needed — for
+re-applying a backup without re-syncing.
 
 **Distribution mechanism.** `install.ps1` (meant to be run via
 `irm <raw-github-url> | iex`) clones this repo and calls

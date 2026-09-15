@@ -23,6 +23,9 @@
     "devHost": "",
     "devUser": "dev",
     "devPasswordEnvVar": "DEV_DB_PASSWORD",
+    "stgHost": "",
+    "stgUser": "stg",
+    "stgPasswordEnvVar": "STG_DB_PASSWORD",
     "backupFolder": "db_backups",
     "databases": ["FleetDB", "RouteDB", "PlanningDB", "CostDB", "OrderDB", "DriverDB", "ReportDB", "NotificationDB"],
     "excludeTableDataPattern": ""
