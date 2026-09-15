@@ -24,10 +24,13 @@ try {
     if ($config.hiddenMenuItems) { $hiddenMenuItems = @($config.hiddenMenuItems | ForEach-Object { $_.Replace('\', '/').ToLowerInvariant() }) }
 } catch {}
 
-# install-latest needs android.deploy.apiKey configured to call the deploy
-# API — hide it rather than showing an entry that will just guard-clause exit.
-if (-not ($config -and $config.android -and $config.android.deploy -and $config.android.deploy.apiKey)) {
-    $hiddenMenuItems += "android/install-latest.ps1"
+# install-latest-* needs its android.deploy.<env>.apiKey configured to call
+# the deploy API — hide the ones missing that rather than showing an entry
+# that will just guard-clause exit.
+foreach ($env in @("dev", "stg")) {
+    if (-not ($config -and $config.android -and $config.android.deploy -and $config.android.deploy.$env -and $config.android.deploy.$env.apiKey)) {
+        $hiddenMenuItems += "android/install-latest-$env.ps1"
+    }
 }
 
 $groups = @(
@@ -75,7 +78,8 @@ $groups = @(
             [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "install-latest"; Path = "android\install-latest.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[dev] install-latest"; Path = "android\install-latest-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[stg] install-latest"; Path = "android\install-latest-stg.ps1"; Desc = "" }
         )
     }
     [ordered]@{

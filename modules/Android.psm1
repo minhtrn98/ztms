@@ -69,18 +69,24 @@ function Select-TmsAvd {
 
 function Get-TmsAndroidDeployConfig {
     <#
-    Reads android.deploy.{apiUrl,apiKey,appId} -- the DeployApp API used by
-    android/install-latest.ps1 to look up the latest build. ApiKey here is an
-    app-level identifier the deploy API expects in its request body, not a
-    login secret, so (like the rest of android.*) it lives in tms.config.json
-    rather than behind Get-TmsSecret.
+    Reads android.deploy.<Environment>.{apiUrl,apiKey,appId,userActionId} --
+    the internal deploy API used by android/install-latest-*.ps1 to look up
+    the latest build for that environment (e.g. "dev", "stg" -- each is a
+    different host/AppId/UserActionId). ApiKey/UserActionId here are
+    app-level identifiers the deploy API expects in its request body, not
+    login secrets, so (like the rest of android.*) they live in
+    tms.config.json rather than behind Get-TmsSecret.
     #>
-    param([Parameter(Mandatory)]$Config)
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$Environment
+    )
 
-    $deploy = $Config.android.deploy
+    $deploy = $Config.android.deploy.$Environment
     if (-not $deploy -or [string]::IsNullOrWhiteSpace($deploy.apiUrl) -or
-        [string]::IsNullOrWhiteSpace($deploy.apiKey) -or [string]::IsNullOrWhiteSpace($deploy.appId)) {
-        Write-Host "No android.deploy configured (apiUrl/apiKey/appId). Edit tms.config.json or re-run setup\init-config.ps1." -ForegroundColor Red
+        [string]::IsNullOrWhiteSpace($deploy.apiKey) -or [string]::IsNullOrWhiteSpace($deploy.appId) -or
+        [string]::IsNullOrWhiteSpace($deploy.userActionId)) {
+        Write-Host "No android.deploy.$Environment configured (apiUrl/apiKey/appId/userActionId). Edit tms.config.json or re-run setup\init-config.ps1." -ForegroundColor Red
         exit 1
     }
     return $deploy
@@ -132,5 +138,97 @@ function Select-TmsRunningAndroidDevice {
     return $devices[$index]
 }
 
+function Invoke-TmsAndroidInstallLatest {
+    <#
+    Full install-latest flow shared by android/install-latest-dev.ps1 and
+    android/install-latest-stg.ps1: resolve exes/config, pick a running
+    emulator, call the deploy API for -Environment, pick the newest
+    DEPLOY-status version, download its APK, adb push + pm install it, then
+    delete both the device and local copies.
+
+    The two environments' deploy APIs return differently-shaped responses
+    (dev's GetAppInfoById nests versions under .Data.Versions; stg's
+    GetAppHistoryById returns .Versions at the top level, alongside an
+    IsError/ErrorMessage pair) -- both are handled here.
+    #>
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$Environment
+    )
+
+    $emulatorExe = Get-TmsAndroidEmulatorExe -Config $Config
+    $adbExe = Get-TmsAndroidAdbExe -Config $Config
+    $deploy = Get-TmsAndroidDeployConfig -Config $Config -Environment $Environment
+
+    $device = Select-TmsRunningAndroidDevice -AdbExe $adbExe -Prompt "Select a running emulator to install onto"
+
+    Write-Host "-> " -ForegroundColor Green -NoNewline
+    Write-Host "Target: " -ForegroundColor White -NoNewline
+    Write-Host "$($device.AvdName) ($($device.Serial))" -ForegroundColor Cyan
+
+    Write-Host "-> Fetching latest $Environment build info for $($deploy.appId)..." -ForegroundColor Green
+    $body = @{ ApiKey = $deploy.apiKey; UserActionId = $deploy.userActionId; AppId = $deploy.appId } | ConvertTo-Json
+    try {
+        $response = Invoke-RestMethod -Uri $deploy.apiUrl -Method Post -ContentType "application/json" -Body $body
+    } catch {
+        Write-Host "Failed to call deploy API: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    }
+
+    if ($response.IsError) {
+        Write-Host "Deploy API returned an error: $($response.ErrorMessage)" -ForegroundColor Red
+        exit 1
+    }
+
+    $versions = if ($response.Data) { $response.Data.Versions } else { $response.Versions }
+    $latest = @($versions | Where-Object { $_.DeployStatus -eq "DEPLOY" }) |
+        Sort-Object { [datetime]$_.StartTime } -Descending |
+        Select-Object -First 1
+
+    if (-not $latest) {
+        Write-Host "No deployed version found for $($deploy.appId)." -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "-> " -ForegroundColor Green -NoNewline
+    Write-Host "Latest: " -ForegroundColor White -NoNewline
+    Write-Host "v$($latest.Version) - $($latest.Description)" -ForegroundColor Cyan
+
+    $fileName = Split-Path $latest.FileUrl -Leaf
+    $localPath = Join-Path ([System.IO.Path]::GetTempPath()) $fileName
+    $remotePath = "/data/local/tmp/$fileName"
+
+    Write-Host "-> Downloading $fileName..." -ForegroundColor Green
+    try {
+        Invoke-WebRequest -Uri $latest.FileUrl -OutFile $localPath
+    } catch {
+        Write-Host "Failed to download APK: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    }
+
+    try {
+        Write-Host "-> Copying to emulator..." -ForegroundColor Green
+        & $adbExe -s $device.Serial push $localPath $remotePath | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "adb push failed (exit $LASTEXITCODE)" }
+
+        Write-Host "-> Installing..." -ForegroundColor Green
+        $installOutput = & $adbExe -s $device.Serial shell pm install -r $remotePath 2>&1
+        if ($LASTEXITCODE -ne 0 -or $installOutput -notmatch "Success") {
+            throw "pm install failed: $installOutput"
+        }
+
+        Write-Host "-> " -ForegroundColor Green -NoNewline
+        Write-Host "Installed " -ForegroundColor White -NoNewline
+        Write-Host "v$($latest.Version) ($Environment) on $($device.AvdName)." -ForegroundColor Cyan
+    } catch {
+        Write-Host "Install failed: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    } finally {
+        Write-Host "-> Cleaning up APK..." -ForegroundColor Green
+        & $adbExe -s $device.Serial shell rm -f $remotePath 2>&1 | Out-Null
+        Remove-Item $localPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Export-ModuleMember -Function Get-TmsAndroidEmulatorExe, Get-TmsAndroidAdbExe, Get-TmsAndroidAvds, Select-TmsAvd, `
-    Get-TmsAndroidDeployConfig, Get-TmsAndroidRunningDevices, Select-TmsRunningAndroidDevice
+    Get-TmsAndroidDeployConfig, Get-TmsAndroidRunningDevices, Select-TmsRunningAndroidDevice, Invoke-TmsAndroidInstallLatest

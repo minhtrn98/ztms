@@ -41,7 +41,11 @@
     "startCommand": "yarn start"
   },
   "android": {
-    "emulatorPath": "C:\\Program Files (x86)\\Android\\android-sdk\\emulator"
+    "emulatorPath": "C:\\Program Files (x86)\\Android\\android-sdk\\emulator",
+    "deploy": {
+      "dev": { "apiUrl": "", "apiKey": "", "appId": "", "userActionId": "" },
+      "stg": { "apiUrl": "", "apiKey": "", "appId": "", "userActionId": "" }
+    }
   },
   "hiddenMenuItems": ["setup/init-config.ps1", "setup/set-env.ps1", "android/stop.ps1"]
 }

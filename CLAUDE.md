@@ -77,15 +77,24 @@ $config = Get-TmsConfig
   `emulator -list-avds`, and `Select-TmsAvd` wraps that with the
   `Show-Menu` picker (from `ProjectMenu.psm1`, which callers must also
   import) — shared by `android/start*.ps1` and `android/stop.ps1`.
-  `Get-TmsAndroidDeployConfig` guard-checks `config.android.deploy`
-  (`apiUrl`/`apiKey`/`appId` for the internal DeployApp API — `apiKey` here
-  is an app identifier the API expects in its body, not a login secret, so
-  it isn't routed through `Get-TmsSecret`); `Get-TmsAndroidRunningDevices`/
+  `Get-TmsAndroidDeployConfig` guard-checks `config.android.deploy.<env>`
+  (`apiUrl`/`apiKey`/`appId`/`userActionId` per environment, e.g. `dev`/
+  `stg` — each is a different host, AppId, and UserActionId against the
+  internal deploy API; `apiKey`/`userActionId` here are identifiers the API
+  expects in its request body, not login secrets, so they aren't routed
+  through `Get-TmsSecret`). `Get-TmsAndroidRunningDevices`/
   `Select-TmsRunningAndroidDevice` resolve currently-running emulator
-  serials to their AVD names via `adb devices` + `adb emu avd name` — used
-  by `android/install-latest.ps1`, which fetches the latest `DEPLOY`-status
-  build from that API, downloads the APK, `adb push`es + `pm install -r`s it
-  onto the picked device, then deletes both the device and local copies.
+  serials to their AVD names via `adb devices` + `adb emu avd name`.
+  `Invoke-TmsAndroidInstallLatest -Config -Environment` is the shared
+  orchestrator behind `android/install-latest-dev.ps1` and
+  `android/install-latest-stg.ps1` (each a thin wrapper naming its
+  environment): it calls that environment's deploy API — dev's
+  `GetAppInfoById` nests results under `.Data.Versions`, stg's
+  `GetAppHistoryById` returns `.Versions` at the top level alongside an
+  `IsError`/`ErrorMessage` pair, both handled — picks the newest
+  `DEPLOY`-status version by `StartTime`, downloads the APK, `adb push`es +
+  `pm install -r`s it onto the picked device, then deletes both the device
+  and local copies.
 
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
 reachable as the global `ztms` command once installed). It's a `$groups`
