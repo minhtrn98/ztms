@@ -187,18 +187,17 @@ function Invoke-TmsDbLaunchRestoreWorkers {
         $dbName = $_
         Write-Host "Launching process for: $dbName" -ForegroundColor Cyan
 
-        $arguments = @(
-            "-ExecutionPolicy", "Bypass",
-            "-File", $using:WorkerScriptPath,
-            "-DbName", $dbName,
-            "-FileSuffix", $using:FileSuffix,
-            "-LocalHost", $using:LocalHost,
-            "-LocalUser", $using:LocalUser,
-            "-LocalPassword", $using:LocalPassword,
-            "-BackupFolder", $using:resolvedBackupFolder
-        )
+        # Built as one pre-quoted string, not a -ArgumentList array: Start-Process
+        # silently drops empty-string array elements when composing the child's
+        # command line, which shifts every flag after it and makes the worker
+        # fail to bind its parameters (FileSuffix is empty for "dev"). Wrapping
+        # each value in literal double quotes keeps an empty value as `""` on
+        # the command line instead of vanishing.
+        $argString = "-ExecutionPolicy Bypass -File `"$using:WorkerScriptPath`" -DbName `"$dbName`" " +
+            "-FileSuffix `"$using:FileSuffix`" -LocalHost `"$using:LocalHost`" -LocalUser `"$using:LocalUser`" " +
+            "-LocalPassword `"$using:LocalPassword`" -BackupFolder `"$using:resolvedBackupFolder`""
 
-        $process = Start-Process powershell -ArgumentList $arguments -WindowStyle Normal -PassThru
+        $process = Start-Process powershell -ArgumentList $argString -WindowStyle Normal -PassThru
         $process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::High
         return [PSCustomObject]@{
             Database  = $dbName
