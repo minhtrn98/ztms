@@ -32,10 +32,11 @@ check in this repo. It:
 
 It does **not** exercise actually running a service, cloning a real DB/Redis
 cache, or the interactive prompts in `900_init-config.ps1` /
-`901_set-env.ps1` — those need manual verification against a real setup
-before a release. When adding a new script or changing a guard clause, add a
-corresponding `Test-Step`/`Invoke-Guarded` case in `smoke-test.ps1` following
-the existing pattern.
+`901_set-env.ps1` / `common/checkout-branch.ps1` (branch name + confirm) —
+those need manual verification against a real setup before a release. When
+adding a new script or changing a guard clause, add a corresponding
+`Test-Step`/`Invoke-Guarded` case in `smoke-test.ps1` following the existing
+pattern.
 
 ## Architecture
 
@@ -140,6 +141,17 @@ of the workflow**, not a strict pipeline: `0xx` = day-to-day run scripts,
 scripts; `090_publish.ps1` reads it back to pre-check those services in its
 selection menu, and trims consumed entries back out after publishing. This
 is the only file-based handoff between scripts.
+
+**`common/checkout-branch.ps1`** is `pull-all.ps1`'s sibling for switching
+branches instead of pulling: same `reposRoot`/`pullIgnoreFolders`-derived
+repo list and `ForEach-Object -Parallel` shape, but it prompts (`Read-Host`)
+for a branch name typed once and applied to every repo, `git fetch`s each
+repo before checkout so a remote-only branch resolves to a new local
+tracking branch, and reports per-repo success/failure rather than aborting
+the batch on the first miss (a repo without that branch, or one further
+along in a rename/typo, just shows up as a FAILED line). It never force-
+checks-out — a dirty repo whose local changes would be overwritten is left
+alone and reported as failed rather than losing work.
 
 **DB clone pipeline** is the most involved, and — like android's
 install-latest and redis's clone/restore — is built as thin per-environment
