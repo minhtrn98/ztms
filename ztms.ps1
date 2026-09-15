@@ -56,6 +56,8 @@ $groups = @(
         Entries = @(
             [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "redis\clone-redis-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] restore"; Path = "redis\restore-redis-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[stg] clone-restore"; Path = "redis\clone-redis-stg.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[stg] restore"; Path = "redis\restore-redis-stg.ps1"; Desc = "" }
         )
     }
     [ordered]@{

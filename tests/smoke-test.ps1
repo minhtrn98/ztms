@@ -75,6 +75,7 @@ $syntheticConfig = [ordered]@{
     }
     redis             = [ordered]@{
         devHost = ""; devPort = 6379; devPasswordEnvVar = "DEV_REDIS_PW"
+        stgHost = ""; stgPort = 6379; stgPasswordEnvVar = "STG_REDIS_PW"
         container = "smoketest-redis"; volume = "smoketest_data"; backupFolder = "_db_backups"
     }
 }
@@ -113,6 +114,9 @@ Test-Step "db/terminate-connections.ps1 exits cleanly with no databases configur
 }
 Test-Step "redis/clone-redis-dev.ps1 exits cleanly with no devHost configured" {
     Invoke-Guarded "redis\clone-redis-dev.ps1" "No redis.devHost configured"
+}
+Test-Step "redis/clone-redis-stg.ps1 exits cleanly with no stgHost configured" {
+    Invoke-Guarded "redis\clone-redis-stg.ps1" "No redis.stgHost configured"
 }
 Test-Step "backend/stop.ps1 reports no tagged processes" {
     Invoke-Guarded "backend\stop.ps1" "No processes tagged"

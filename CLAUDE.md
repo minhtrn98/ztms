@@ -155,13 +155,19 @@ per-database. `db/restore-db-dev.ps1` reuses the last downloaded
 and reruns just the terminate + worker-launch phases (same worker script,
 same drop/recreate/pre-schema/data/post-schema order) — no dev connection,
 no dev password, and it guards up front that all three files exist per
-configured database before launching anything. `redis/clone-redis-dev.ps1`
-is simpler: export RDB from dev
-via `docker exec redis-cli --rdb`, copy out, stop the local container,
-replace the volume's dump file, restart. `redis/restore-redis-dev.ps1` reuses
-the last downloaded `dump-dev.rdb` from `redis.backupFolder` and replays just
-the stop/replace/restart steps — no dev connection, no password needed —
-for re-applying a backup without re-syncing from dev.
+configured database before launching anything. Redis clone/restore is
+simpler and, like the android install-latest scripts, is built as thin
+per-environment wrappers (`redis/clone-redis-dev.ps1`/
+`redis/clone-redis-stg.ps1`, `redis/restore-redis-dev.ps1`/
+`redis/restore-redis-stg.ps1`) around two shared functions in
+`modules/Redis.psm1`: `Invoke-TmsRedisClone -Config -Environment` exports an
+RDB from the remote (`redis.<env>Host/Port/PasswordEnvVar`, e.g. `devHost`/
+`stgHost`) via `docker exec redis-cli --rdb`, copies it out, stops the local
+container, replaces the volume's dump file, and restarts; `Invoke-TmsRedisRestore
+-Config -Environment` reuses the last downloaded `dump-<env>.rdb` from
+`redis.backupFolder` and replays just the stop/replace/restart steps — no
+remote connection, no password needed — for re-applying a backup without
+re-syncing.
 
 **Distribution mechanism.** `install.ps1` (meant to be run via
 `irm <raw-github-url> | iex`) clones this repo and calls

@@ -31,6 +31,9 @@
     "devHost": "",
     "devPort": 6379,
     "devPasswordEnvVar": "DEV_REDIS_PW",
+    "stgHost": "",
+    "stgPort": 6379,
+    "stgPasswordEnvVar": "STG_REDIS_PW",
     "container": "my-redis",
     "volume": "redis_data",
     "backupFolder": "db_backups"
