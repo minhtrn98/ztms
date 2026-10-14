@@ -11,6 +11,11 @@ $config = Get-TmsConfig
 $emulatorExe = Get-TmsAndroidEmulatorExe -Config $config
 $avd = Select-TmsAvd -EmulatorExe $emulatorExe -Prompt "Select an AVD to start"
 
+if (Test-TmsAndroidAvdRunning -Avd $avd) {
+    Write-Host "'$avd' is already running (its '$avd' tab is still open) -- not starting another instance." -ForegroundColor DarkYellow
+    exit 0
+}
+
 Write-Host "-> " -ForegroundColor Green -NoNewline
 Write-Host "Starting: " -ForegroundColor White -NoNewline
 Write-Host $avd -ForegroundColor Cyan

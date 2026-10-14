@@ -11,6 +11,11 @@ $config = Get-TmsConfig
 $emulatorExe = Get-TmsAndroidEmulatorExe -Config $config
 $avd = Select-TmsAvd -EmulatorExe $emulatorExe -Prompt "Select an AVD to start (cold boot, no snapshot)"
 
+if (Test-TmsAndroidAvdRunning -Avd $avd) {
+    Write-Host "'$avd' is already running (its '$avd' tab is still open) -- not starting another instance. Stop it first to cold boot." -ForegroundColor DarkYellow
+    exit 0
+}
+
 Write-Host "-> " -ForegroundColor Green -NoNewline
 Write-Host "Starting (cold boot): " -ForegroundColor White -NoNewline
 Write-Host $avd -ForegroundColor Cyan

@@ -230,6 +230,22 @@ function Invoke-TmsAndroidInstallLatest {
     }
 }
 
+function Test-TmsAndroidAvdRunning {
+    <#
+    True if an emulator process for this AVD already exists. Checks process
+    command lines (emulator.exe and the qemu-system-* child it spawns both
+    carry `-avd <name>`) rather than `adb devices`, so an emulator that's
+    still booting -- not yet visible to adb -- counts as running too. Since
+    Start-TmsAndroidEmulator's tab closes when the emulator exits, "running"
+    is also "its tab is still open".
+    #>
+    param([Parameter(Mandatory)][string]$Avd)
+
+    $pattern = '(^|\s)-avd\s+"?' + [regex]::Escape($Avd) + '"?(\s|$)'
+    $procs = Get-CimInstance Win32_Process -Filter "Name LIKE 'emulator%' OR Name LIKE 'qemu-system%'" -ErrorAction SilentlyContinue
+    return [bool]($procs | Where-Object { $_.CommandLine -match $pattern })
+}
+
 function Start-TmsAndroidEmulator {
     <#
     Launches emulator.exe for an AVD, hosted in a pwsh (PowerShell 7) session.
@@ -263,4 +279,4 @@ function Start-TmsAndroidEmulator {
 }
 
 Export-ModuleMember -Function Get-TmsAndroidEmulatorExe, Get-TmsAndroidAdbExe, Get-TmsAndroidAvds, Select-TmsAvd, `
-    Start-TmsAndroidEmulator, Get-TmsAndroidDeployConfig, Get-TmsAndroidRunningDevices, Select-TmsRunningAndroidDevice, Invoke-TmsAndroidInstallLatest
+    Test-TmsAndroidAvdRunning, Start-TmsAndroidEmulator, Get-TmsAndroidDeployConfig, Get-TmsAndroidRunningDevices, Select-TmsRunningAndroidDevice, Invoke-TmsAndroidInstallLatest
