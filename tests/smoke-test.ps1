@@ -166,6 +166,10 @@ Test-Step "httptoolkit/restart.ps1 exits cleanly with htk not on PATH" {
     try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\restart.ps1" "'htk' command not found" }
     finally { $env:PATH = $savedPath }
 }
+Test-Step "ztms.ps1 rejects an unknown direct-run target" {
+    $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nope/nope 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 1 -or $output -notmatch "Unknown script") { throw "Expected 'Unknown script' + exit 1. Got ($LASTEXITCODE):`n$output" }
+}
 
 # --- 5. Cleanup --------------------------------------------------------------
 Remove-Item -Recurse -Force $testRoot -ErrorAction SilentlyContinue

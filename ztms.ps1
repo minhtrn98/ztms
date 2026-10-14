@@ -9,6 +9,10 @@
 # Grouped, always-expanded menu: group names (BE, FE, ...) render as
 # non-selectable headers; Up/Down skip over them so only scripts are
 # highlighted. Escape exits.
+#
+# Non-interactive: pass a target to skip the menu and run one script directly,
+# e.g. `ztms frontend run` (group + entry name) or `ztms frontend/run` (path
+# without .ps1). Exits with that script's exit code instead of looping.
 # ======================================
 
 Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
@@ -109,6 +113,34 @@ if ($hiddenMenuItems.Count -gt 0) {
     foreach ($group in $groups) {
         $group.Entries = @($group.Entries | Where-Object { $hiddenMenuItems -notcontains $_.Path.Replace('\', '/').ToLowerInvariant() })
     }
+}
+
+if ($args.Count -gt 0) {
+    $target = (($args -join " ").Trim() -replace '\\', '/').ToLowerInvariant()
+    $match = $null
+    foreach ($group in $groups) {
+        foreach ($entry in $group.Entries) {
+            $byName = "$($group.Name) $($entry.DisplayName)".ToLowerInvariant()
+            $byPath = ($entry.Path -replace '\\', '/' -replace '\.ps1$', '').ToLowerInvariant()
+            if ($target -eq $byName -or $target -eq $byPath -or $target -eq "$byPath.ps1") { $match = $entry; break }
+        }
+        if ($match) { break }
+    }
+
+    if (-not $match) {
+        Write-Host "Unknown script: $($args -join ' ')" -ForegroundColor Red
+        Write-Host "Available:" -ForegroundColor Gray
+        foreach ($group in $groups) {
+            foreach ($entry in $group.Entries) {
+                Write-Host "  $($group.Name.ToLowerInvariant()) $($entry.DisplayName)" -ForegroundColor Gray
+            }
+        }
+        exit 1
+    }
+
+    Write-Host "-> Running: $($match.Path)`n" -ForegroundColor Green
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $match.Path)
+    exit $LASTEXITCODE
 }
 
 while ($true) {
