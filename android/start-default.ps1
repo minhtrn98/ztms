@@ -15,4 +15,4 @@ Write-Host "-> " -ForegroundColor Green -NoNewline
 Write-Host "Starting (cold boot): " -ForegroundColor White -NoNewline
 Write-Host $avd -ForegroundColor Cyan
 
-Start-Process -FilePath $emulatorExe -ArgumentList @("-avd", $avd, "-no-snapshot-load")
+Start-TmsAndroidEmulator -EmulatorExe $emulatorExe -Avd $avd -ExtraArgs "-no-snapshot-load"

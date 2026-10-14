@@ -15,4 +15,4 @@ Write-Host "-> " -ForegroundColor Green -NoNewline
 Write-Host "Starting: " -ForegroundColor White -NoNewline
 Write-Host $avd -ForegroundColor Cyan
 
-Start-Process -FilePath $emulatorExe -ArgumentList @("-avd", $avd)
+Start-TmsAndroidEmulator -EmulatorExe $emulatorExe -Avd $avd

@@ -230,5 +230,37 @@ function Invoke-TmsAndroidInstallLatest {
     }
 }
 
+function Start-TmsAndroidEmulator {
+    <#
+    Launches emulator.exe for an AVD, hosted in a pwsh (PowerShell 7) session.
+    Inside Windows Terminal ($env:WT_SESSION set, wt.exe on PATH) it opens as
+    a new tab titled with the AVD name in the current window
+    (`wt -w 0 new-tab`); anywhere else (VS Code's integrated terminal, plain
+    conhost) it falls back to Start-Process, which opens its own pwsh window.
+    The emulator command is passed via -EncodedCommand so paths with spaces
+    and wt's own `;` argument parsing can't mangle it.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$EmulatorExe,
+        [Parameter(Mandatory)][string]$Avd,
+        [string[]]$ExtraArgs = @()
+    )
+
+    $quote = { param($s) "'" + ($s -replace "'", "''") + "'" }
+    $emulatorArgs = @("-avd", $Avd) + $ExtraArgs
+    $command = "& " + (& $quote $EmulatorExe) + " " + (($emulatorArgs | ForEach-Object { & $quote $_ }) -join " ")
+    $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($command))
+
+    $pwsh = Join-Path $PSHOME "pwsh.exe"
+    $pwshArgs = @("-NoLogo", "-NoProfile", "-EncodedCommand", $encoded)
+
+    $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
+    if ($env:WT_SESSION -and $wt) {
+        & $wt.Source -w 0 new-tab --title $Avd --suppressApplicationTitle $pwsh @pwshArgs
+    } else {
+        Start-Process -FilePath $pwsh -ArgumentList $pwshArgs
+    }
+}
+
 Export-ModuleMember -Function Get-TmsAndroidEmulatorExe, Get-TmsAndroidAdbExe, Get-TmsAndroidAvds, Select-TmsAvd, `
-    Get-TmsAndroidDeployConfig, Get-TmsAndroidRunningDevices, Select-TmsRunningAndroidDevice, Invoke-TmsAndroidInstallLatest
+    Start-TmsAndroidEmulator, Get-TmsAndroidDeployConfig, Get-TmsAndroidRunningDevices, Select-TmsRunningAndroidDevice, Invoke-TmsAndroidInstallLatest
