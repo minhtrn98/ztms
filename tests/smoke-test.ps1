@@ -148,6 +148,24 @@ Test-Step "android/install-latest-dev.ps1 exits cleanly with no android.emulator
 Test-Step "android/install-latest-stg.ps1 exits cleanly with no android.emulatorPath configured" {
     Invoke-Guarded "android\install-latest-stg.ps1" "No android.emulatorPath configured"
 }
+Test-Step "httptoolkit/start.ps1 exits cleanly with htk not on PATH" {
+    # PATH narrowed to pwsh only, so a real htk install is never invoked.
+    $savedPath = $env:PATH
+    try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\start.ps1" "'htk' command not found" }
+    finally { $env:PATH = $savedPath }
+}
+Test-Step "httptoolkit/stop.ps1 exits cleanly with htk not on PATH" {
+    # PATH narrowed to pwsh only, so a real htk install is never invoked.
+    $savedPath = $env:PATH
+    try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\stop.ps1" "'htk' command not found" }
+    finally { $env:PATH = $savedPath }
+}
+Test-Step "httptoolkit/restart.ps1 exits cleanly with htk not on PATH" {
+    # PATH narrowed to pwsh only, so a real htk install is never invoked.
+    $savedPath = $env:PATH
+    try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\restart.ps1" "'htk' command not found" }
+    finally { $env:PATH = $savedPath }
+}
 
 # --- 5. Cleanup --------------------------------------------------------------
 Remove-Item -Recurse -Force $testRoot -ErrorAction SilentlyContinue

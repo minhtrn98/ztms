@@ -88,6 +88,14 @@ $groups = @(
         )
     }
     [ordered]@{
+        Name    = "HTTPTOOLKIT"
+        Entries = @(
+            [ordered]@{ DisplayName = "start"; Path = "httptoolkit\start.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "stop"; Path = "httptoolkit\stop.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "restart"; Path = "httptoolkit\restart.ps1"; Desc = "" }
+        )
+    }
+    [ordered]@{
         Name    = "SETUP"
         Entries = @(
             [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
