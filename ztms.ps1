@@ -97,6 +97,7 @@ $groups = @(
             [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "set-location"; Path = "android\set-location.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] install-latest"; Path = "android\install-latest-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[stg] install-latest"; Path = "android\install-latest-stg.ps1"; Desc = "" }
         )

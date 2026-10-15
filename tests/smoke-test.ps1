@@ -142,6 +142,9 @@ Test-Step "android/start-default.ps1 exits cleanly with no android.emulatorPath 
 Test-Step "android/stop.ps1 exits cleanly with no android.emulatorPath configured" {
     Invoke-Guarded "android\stop.ps1" "No android.emulatorPath configured"
 }
+Test-Step "android/set-location.ps1 exits cleanly with no android.emulatorPath configured" {
+    Invoke-Guarded "android\set-location.ps1" "No android.emulatorPath configured"
+}
 Test-Step "android/install-latest-dev.ps1 exits cleanly with no android.emulatorPath configured" {
     Invoke-Guarded "android\install-latest-dev.ps1" "No android.emulatorPath configured"
 }

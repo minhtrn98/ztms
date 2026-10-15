@@ -48,6 +48,7 @@
   },
   "android": {
     "emulatorPath": "C:\\Program Files (x86)\\Android\\android-sdk\\emulator",
+    "postOfficeDb": "RouteDB",
     "deploy": {
       "dev": { "apiUrl": "", "apiKey": "", "appId": "", "userActionId": "" },
       "stg": { "apiUrl": "", "apiKey": "", "appId": "", "userActionId": "" }
