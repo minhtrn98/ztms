@@ -54,7 +54,7 @@
     }
   },
   "pms": {
-    "dev": { "updateScript": "" }
+    "dev": { "startScript": "", "updateScript": "" }
   },
   "hiddenMenuItems": ["setup/init-config.ps1", "setup/set-env.ps1", "android/stop.ps1"]
 }

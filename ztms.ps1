@@ -37,9 +37,11 @@ foreach ($env in @("dev", "stg")) {
     }
 }
 
-# Same for PMS: only machines with a PMS update script configured get the entry.
-if (-not ($config -and $config.pms -and $config.pms.dev -and $config.pms.dev.updateScript)) {
-    $hiddenMenuItems += "pms/update-dev.ps1"
+# Same for PMS: only machines with the matching PMS script configured get each entry.
+foreach ($pmsEntry in @(@{ Key = "startScript"; Path = "pms/start-dev.ps1" }, @{ Key = "updateScript"; Path = "pms/update-dev.ps1" })) {
+    if (-not ($config -and $config.pms -and $config.pms.dev -and $config.pms.dev.($pmsEntry.Key))) {
+        $hiddenMenuItems += $pmsEntry.Path
+    }
 }
 
 $groups = @(
@@ -107,6 +109,7 @@ $groups = @(
     [ordered]@{
         Name    = "PMS"
         Entries = @(
+            [ordered]@{ DisplayName = "[dev] start"; Path = "pms\start-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] update"; Path = "pms\update-dev.ps1"; Desc = "" }
         )
     }
