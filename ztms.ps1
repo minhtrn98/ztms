@@ -37,6 +37,11 @@ foreach ($env in @("dev", "stg")) {
     }
 }
 
+# Same for PMS: only machines with a PMS update script configured get the entry.
+if (-not ($config -and $config.pms -and $config.pms.dev -and $config.pms.dev.updateScript)) {
+    $hiddenMenuItems += "pms/update-dev.ps1"
+}
+
 $groups = @(
     [ordered]@{
         Name    = "COMMON"
@@ -100,6 +105,12 @@ $groups = @(
         )
     }
     [ordered]@{
+        Name    = "PMS"
+        Entries = @(
+            [ordered]@{ DisplayName = "[dev] update"; Path = "pms\update-dev.ps1"; Desc = "" }
+        )
+    }
+    [ordered]@{
         Name    = "SETUP"
         Entries = @(
             [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
@@ -113,6 +124,8 @@ if ($hiddenMenuItems.Count -gt 0) {
     foreach ($group in $groups) {
         $group.Entries = @($group.Entries | Where-Object { $hiddenMenuItems -notcontains $_.Path.Replace('\', '/').ToLowerInvariant() })
     }
+    # Drop groups left with no entries (e.g. PMS on a machine without it) so no empty header shows
+    $groups = @($groups | Where-Object { $_.Entries.Count -gt 0 })
 }
 
 if ($args.Count -gt 0) {

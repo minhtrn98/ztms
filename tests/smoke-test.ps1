@@ -148,6 +148,9 @@ Test-Step "android/install-latest-dev.ps1 exits cleanly with no android.emulator
 Test-Step "android/install-latest-stg.ps1 exits cleanly with no android.emulatorPath configured" {
     Invoke-Guarded "android\install-latest-stg.ps1" "No android.emulatorPath configured"
 }
+Test-Step "pms/update-dev.ps1 exits cleanly with no pms.dev.updateScript configured" {
+    Invoke-Guarded "pms\update-dev.ps1" "No pms.dev.updateScript configured"
+}
 Test-Step "httptoolkit/start.ps1 exits cleanly with htk not on PATH" {
     # PATH narrowed to pwsh only, so a real htk install is never invoked.
     $savedPath = $env:PATH
