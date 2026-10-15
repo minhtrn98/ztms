@@ -97,6 +97,41 @@ $config = Get-TmsConfig
   `pm install -r`s it onto the picked device, then deletes both the device
   and local copies.
 
+- `modules/TmsConfig.psm1` also owns the **env var inventory**:
+  `Get-TmsUserEnvVars -Config` derives every user-level env var ztms reads
+  from config (every `database.*PasswordEnvVar`/`redis.*PasswordEnvVar`,
+  `pms.dev.passwordEnvVar`) plus every key in `tms.env.local`
+  (`Read-TmsEnvFile`). `setup/doctor.ps1`, `setup/export.ps1` and
+  `setup/import.ps1` all go through it — when adding a new secret, add it as
+  a `*PasswordEnvVar` config key (or a `tms.env.local` key) rather than
+  reading a hardcoded env var name, or those three won't know about it.
+- `modules/Backup.psm1` — `Protect-TmsBackup`/`Unprotect-TmsBackup`: the
+  `.ztmsbak` format used by export/import ("ZTMS1" magic + salt + nonce +
+  tag + AES-256-GCM ciphertext, PBKDF2-SHA256 600k key). Passphrase-based so
+  it's portable across machines (DPAPI wouldn't be).
+- `modules/HttpToolkit.psm1` — drives a custom HTTP Toolkit UI fork whose
+  own `scripts\release.ps1` (exposed as `htk` via `scripts\htk.cmd`) does
+  build/deploy/start/stop. ztms runs that `release.ps1` straight from
+  `httptoolkit.repoPath` (not via PATH), and the whole HTTPTOOLKIT group is
+  hidden unless `repoPath` is set. `Install-TmsHttpToolkit` clones/checks out
+  `httptoolkit.branch` (never forcing over a dirty tree), adds
+  `<repo>\scripts` to the user PATH via `Add-TmsUserPath` — which writes the
+  registry value as REG_EXPAND_SZ directly and broadcasts WM_SETTINGCHANGE,
+  because `Environment.SetEnvironmentVariable` would rewrite PATH as REG_SZ
+  and break `%VAR%` entries — then runs `htk build`.
+- `modules/Pms.psm1` — PMS desktop app helpers behind `pms/*.ps1`. The app
+  updates itself into a new `<pms.dev.root>\<x.y.z>` folder per version, so
+  everything resolves the newest folder containing `PMS.exe` at run time
+  (`Get-TmsPmsLatestInstalled`). `Invoke-TmsPmsUpdate` mirrors the app's
+  updater (`GetLastVersion` API → zip → unzip), staging to `.part`/`.partial`
+  and renaming so a half-written build is never picked, guarded by a named
+  mutex so the every-minute scheduled task and a manual run can't collide;
+  it toasts via Windows PowerShell 5.1 (pwsh 7 can't load WinRT) and only
+  re-toasts an error after a successful run. `Install-TmsPmsDev` creates the
+  desktop shortcut via a temp `.lnk` in `$env:PUBLIC` because
+  `WScript.Shell` can't save to a non-ASCII path (e.g. a Vietnamese username
+  in the Desktop path).
+
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
 reachable as the global `ztms` command once installed). It's a `$groups`
 array (`BE`, `FE`, `DB`, `Redis`, `Setup`), each holding an `Entries` list of

@@ -53,8 +53,14 @@
       "stg": { "apiUrl": "", "apiKey": "", "appId": "", "userActionId": "" }
     }
   },
-  "pms": {
-    "dev": { "startScript": "", "updateScript": "" }
+  "httptoolkit": {
+    "repoPath": "",
+    "gitUrl": "https://github.com/xizot/custom-http-toolkit.git",
+    "branch": "window-minh",
+    "deployDir": ""
   },
-  "hiddenMenuItems": ["setup/init-config.ps1", "setup/set-env.ps1", "android/stop.ps1"]
+  "pms": {
+    "dev": { "root": "", "updateUrl": "", "product": "PMSx64", "passwordEnvVar": "PMS_DEV_PASSWORD" }
+  },
+  "hiddenMenuItems": []
 }

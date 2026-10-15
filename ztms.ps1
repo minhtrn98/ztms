@@ -37,11 +37,14 @@ foreach ($env in @("dev", "stg")) {
     }
 }
 
-# Same for PMS: only machines with the matching PMS script configured get each entry.
-foreach ($pmsEntry in @(@{ Key = "startScript"; Path = "pms/start-dev.ps1" }, @{ Key = "updateScript"; Path = "pms/update-dev.ps1" })) {
-    if (-not ($config -and $config.pms -and $config.pms.dev -and $config.pms.dev.($pmsEntry.Key))) {
-        $hiddenMenuItems += $pmsEntry.Path
-    }
+# HTTP Toolkit (custom fork) only shows once httptoolkit.repoPath is configured.
+if (-not ($config -and $config.httptoolkit -and $config.httptoolkit.repoPath)) {
+    $hiddenMenuItems += @("httptoolkit/start.ps1", "httptoolkit/stop.ps1", "httptoolkit/restart.ps1", "httptoolkit/build.ps1", "httptoolkit/install.ps1")
+}
+
+# Same for PMS: only machines with pms.dev.root configured get the PMS entries.
+if (-not ($config -and $config.pms -and $config.pms.dev -and $config.pms.dev.root)) {
+    $hiddenMenuItems += @("pms/start-dev.ps1", "pms/update-dev.ps1", "pms/install-dev.ps1")
 }
 
 $groups = @(
@@ -104,6 +107,8 @@ $groups = @(
             [ordered]@{ DisplayName = "start"; Path = "httptoolkit\start.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "stop"; Path = "httptoolkit\stop.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "restart"; Path = "httptoolkit\restart.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "build"; Path = "httptoolkit\build.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "install"; Path = "httptoolkit\install.ps1"; Desc = "" }
         )
     }
     [ordered]@{
@@ -111,13 +116,17 @@ $groups = @(
         Entries = @(
             [ordered]@{ DisplayName = "[dev] start"; Path = "pms\start-dev.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "[dev] update"; Path = "pms\update-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[dev] install"; Path = "pms\install-dev.ps1"; Desc = "" }
         )
     }
     [ordered]@{
         Name    = "SETUP"
         Entries = @(
+            [ordered]@{ DisplayName = "doctor"; Path = "setup\doctor.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "export"; Path = "setup\export.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "import"; Path = "setup\import.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
         )
     }

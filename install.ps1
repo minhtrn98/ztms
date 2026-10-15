@@ -64,5 +64,8 @@
     Write-Host "Repo: $targetDir" -ForegroundColor Gray
     Write-Host "Open a NEW terminal and type: " -ForegroundColor Cyan -NoNewline
     Write-Host "ztms" -ForegroundColor Green
-    Write-Host "First time? From the menu, run '900_init-config.ps1' to set up your config." -ForegroundColor Gray
+    Write-Host "First time? From the menu's SETUP group:" -ForegroundColor Gray
+    Write-Host "  - import       restore config + env vars exported from another machine (SETUP > export there)" -ForegroundColor Gray
+    Write-Host "  - init-config  or answer the setup questions from scratch" -ForegroundColor Gray
+    Write-Host "  - doctor       then check what's still missing (tools, env vars, folders)" -ForegroundColor Gray
 }

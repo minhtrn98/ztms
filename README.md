@@ -7,6 +7,9 @@ to any one machine's folder layout.
 
 ## Install
 
+> Setting up a new machine (or moving from an old one)? See the step-by-step
+> guide in [SETUP.md](SETUP.md) (Vietnamese).
+
 Requires [git](https://git-scm.com/downloads) and
 [PowerShell 7+](https://aka.ms/powershell). From any terminal (cmd.exe,
 PowerShell, or pwsh):
@@ -87,6 +90,51 @@ Prefer to set it up by hand? Clone the repo yourself, then run
    target script directly (not through `ztms`) in the same terminal when you
    need that.
 
+## Check / move a setup (doctor, export, import)
+
+Not sure what this machine still needs? Run **SETUP > doctor** — it lists
+every tool the configured features need (git, dotnet, psql/pg_dump, docker,
+node/yarn, ...), checks the folders in `tms.config.json`, and every
+user-level env var ztms reads (derived from the config's `*PasswordEnvVar`
+keys, `pms.dev.passwordEnvVar`, and every key in `tms.env.local` — including
+whether `tms.env.local` values were persisted or are out of date).
+Read-only; exits 1 only on a FAIL.
+
+To set up a second machine with the same config and secrets:
+
+1. On the old machine: **SETUP > export** → one `.ztmsbak` file containing
+   `tms.config.json`, `tms.env.local`, and the values of those env vars,
+   encrypted with a passphrase you choose (AES-256-GCM, PBKDF2 key). It holds
+   secrets — move it by USB/private share, never git/chat, and delete it after.
+2. On the new machine: install ztms (see Install), then **SETUP > import** →
+   asks for the passphrase, lets you adjust machine-specific paths
+   (`reposRoot`, `deployRoot`, ...), writes both files (keeping `*.bak` of any
+   existing ones), sets the env vars, then runs doctor.
+3. If PMS is configured: **PMS > [dev] install**.
+
+## Custom HTTP Toolkit (optional)
+
+The HTTPTOOLKIT menu group drives a custom fork of the HTTP Toolkit UI
+(`scripts\release.ps1` / `htk` in the fork) and only shows once
+`httptoolkit.repoPath` is configured.
+
+| Menu | What it does |
+|---|---|
+| HTTPTOOLKIT > install | Clones `httptoolkit.gitUrl` into `repoPath` if needed, checks out `httptoolkit.branch` (or fast-forwards it; never forces over local changes), adds `<repo>\scripts` to the user PATH so `htk` works anywhere, then `htk build`. Re-run to update. Needs Node.js >= 20 |
+| HTTPTOOLKIT > build | `htk build` — rebuild, redeploy, restart after code changes |
+| HTTPTOOLKIT > start / stop / restart | `htk start` / `stop` / `restart` |
+
+## PMS desktop app (optional)
+
+The PMS app updates itself into a new `<pms.dev.root>\<version>` folder per
+release, which breaks fixed shortcuts. With `pms.dev` configured:
+
+| Menu | What it does |
+|---|---|
+| PMS > [dev] install | Downloads the latest build if none, creates a "PMS Dev" desktop shortcut that always opens the newest build, and registers a "PMS Dev Auto Update" scheduled task (every minute, headless). Re-run safely. |
+| PMS > [dev] start | Opens the newest build and copies the login password (`pms.dev.passwordEnvVar` user env var) to the clipboard |
+| PMS > [dev] update | Downloads + unzips the latest build now; toasts on install/error; keeps the 2 newest version folders |
+
 ## Uninstall
 
 ```powershell
@@ -155,6 +203,8 @@ working directory, e.g.:
 | `database.excludeTableDataPattern` | Optional `pg_dump --exclude-table-data` pattern (e.g. a job-scheduler table like `qrtz_*`) to skip row data for during clone |
 | `redis.*` | Dev Redis host/port + local docker container/volume names |
 | `frontend.*` | `{ path, buildCommand, startCommand }` for `003_run-frontend.ps1` — `path` is absolute or relative to `reposRoot`; `buildCommand` is optional (skipped if blank), `startCommand` is required |
+| `httptoolkit.*` | Optional `{ repoPath, gitUrl, branch, deployDir }` for the HTTPTOOLKIT menu group — `repoPath` is an existing clone or where to clone `gitUrl`; `branch` is checked out by install; `deployDir` (optional) is persisted as `HTK_DEPLOY_DIR`. Entries are hidden when `repoPath` is blank |
+| `pms.dev.*` | Optional `{ root, updateUrl, product, passwordEnvVar }` for the PMS menu group — `root` is the PMS install folder (e.g. `D:\PMS\PMSDev`), `updateUrl` the update server (the `NewUpdateUrl` in `PMSSetup.exe.config`), `product` defaults to `PMSx64`. PMS entries are hidden when `root` is blank |
 | `hiddenMenuItems` | Optional array of script paths (e.g. `"backend/run.ps1"`, matched against each menu entry's `Path`, `\`/`/` and case insensitive) to hide from the `ztms` menu — the scripts still exist and run directly, they're just left off the picker |
 
 Nothing sensitive belongs in this file — only paths, names, ports, and

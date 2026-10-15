@@ -8,9 +8,10 @@
 # unless you choose to persist them (see prompt below).
 # ======================================
 
+Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\TmsConfig.psm1") -Force
 Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\ProjectMenu.psm1") -Force
 
-$envFile = Join-Path (Split-Path $PSScriptRoot -Parent) "tms.env.local"
+$envFile = Get-TmsEnvFilePath
 $exampleFile = Join-Path (Split-Path $PSScriptRoot -Parent) "tms.env.example"
 
 if (-not (Test-Path $envFile)) {
@@ -22,31 +23,7 @@ if (-not (Test-Path $envFile)) {
     exit 0
 }
 
-function Parse-EnvFile {
-    param([string]$Path)
-
-    $pairs = [ordered]@{}
-    foreach ($line in Get-Content $Path) {
-        $trimmed = $line.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) { continue }
-
-        $idx = $trimmed.IndexOf('=')
-        if ($idx -lt 1) { continue }
-
-        $key = $trimmed.Substring(0, $idx).Trim()
-        $value = $trimmed.Substring($idx + 1).Trim()
-        if ($value.Length -ge 2 -and (
-            ($value.StartsWith('"') -and $value.EndsWith('"')) -or
-            ($value.StartsWith("'") -and $value.EndsWith("'"))
-        )) {
-            $value = $value.Substring(1, $value.Length - 2)
-        }
-        $pairs[$key] = $value
-    }
-    return $pairs
-}
-
-$pairs = Parse-EnvFile -Path $envFile
+$pairs = Read-TmsEnvFile -Path $envFile
 if ($pairs.Count -eq 0) {
     Write-Host "No key=value entries found in $envFile" -ForegroundColor Yellow
     exit 0

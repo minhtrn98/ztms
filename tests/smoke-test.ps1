@@ -148,29 +148,42 @@ Test-Step "android/install-latest-dev.ps1 exits cleanly with no android.emulator
 Test-Step "android/install-latest-stg.ps1 exits cleanly with no android.emulatorPath configured" {
     Invoke-Guarded "android\install-latest-stg.ps1" "No android.emulatorPath configured"
 }
-Test-Step "pms/start-dev.ps1 exits cleanly with no pms.dev.startScript configured" {
-    Invoke-Guarded "pms\start-dev.ps1" "No pms.dev.startScript configured"
+foreach ($pmsScript in "start-dev", "update-dev", "install-dev") {
+    Test-Step "pms/$pmsScript.ps1 exits cleanly with no pms.dev.root configured" {
+        Invoke-Guarded "pms\$pmsScript.ps1" "No pms.dev.root configured"
+    }
 }
-Test-Step "pms/update-dev.ps1 exits cleanly with no pms.dev.updateScript configured" {
-    Invoke-Guarded "pms\update-dev.ps1" "No pms.dev.updateScript configured"
+Test-Step "setup/doctor.ps1 runs and prints a report" {
+    $output = & pwsh -NoProfile -File (Join-Path $testRoot "setup\doctor.ps1") 2>&1 | Out-String
+    if ($output -notmatch "=== ztms doctor ===" -or $output -notmatch "\d+ OK, \d+ WARN, \d+ FAIL") { throw "Unexpected output:`n$output" }
 }
-Test-Step "httptoolkit/start.ps1 exits cleanly with htk not on PATH" {
-    # PATH narrowed to pwsh only, so a real htk install is never invoked.
-    $savedPath = $env:PATH
-    try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\start.ps1" "'htk' command not found" }
-    finally { $env:PATH = $savedPath }
+Test-Step "setup/import.ps1 exits cleanly with a missing backup file" {
+    $output = & pwsh -NoProfile -File (Join-Path $testRoot "setup\import.ps1") -Path (Join-Path $testRoot "nope.ztmsbak") 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 1 -or $output -notmatch "Backup file not found") { throw "Expected 'Backup file not found' + exit 1. Got ($LASTEXITCODE):`n$output" }
 }
-Test-Step "httptoolkit/stop.ps1 exits cleanly with htk not on PATH" {
-    # PATH narrowed to pwsh only, so a real htk install is never invoked.
-    $savedPath = $env:PATH
-    try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\stop.ps1" "'htk' command not found" }
-    finally { $env:PATH = $savedPath }
+Test-Step "Backup.psm1 round-trips and rejects a wrong passphrase" {
+    Import-Module (Join-Path $testRoot "modules\Backup.psm1") -Force
+    $bytes = Protect-TmsBackup -PlainText '{"k":"giá trị"}' -Passphrase "correct horse"
+    if ((Unprotect-TmsBackup -Data $bytes -Passphrase "correct horse") -ne '{"k":"giá trị"}') { throw "Round-trip mismatch" }
+    $rejected = $false
+    try { Unprotect-TmsBackup -Data $bytes -Passphrase "wrong" | Out-Null } catch { $rejected = $true }
+    if (-not $rejected) { throw "Wrong passphrase was accepted" }
 }
-Test-Step "httptoolkit/restart.ps1 exits cleanly with htk not on PATH" {
-    # PATH narrowed to pwsh only, so a real htk install is never invoked.
-    $savedPath = $env:PATH
-    try { $env:PATH = $PSHOME; Invoke-Guarded "httptoolkit\restart.ps1" "'htk' command not found" }
-    finally { $env:PATH = $savedPath }
+Test-Step "Get-TmsUserEnvVars derives env var names from config" {
+    Import-Module (Join-Path $testRoot "modules\TmsConfig.psm1") -Force
+    $names = @(Get-TmsUserEnvVars -Config (Get-Content (Join-Path $testRoot "tms.config.json") -Raw | ConvertFrom-Json) | ForEach-Object Name)
+    foreach ($expected in "TMS_LOCAL_DB_PASSWORD", "DEV_DB_PASSWORD", "STG_DB_PASSWORD", "DEV_REDIS_PW", "STG_REDIS_PW") {
+        if ($names -notcontains $expected) { throw "Missing $expected (got: $($names -join ', '))" }
+    }
+}
+foreach ($htkScript in "start", "stop", "restart", "build", "install") {
+    Test-Step "httptoolkit/$htkScript.ps1 exits cleanly with no httptoolkit.repoPath configured" {
+        Invoke-Guarded "httptoolkit\$htkScript.ps1" "No httptoolkit.repoPath configured"
+    }
+}
+Test-Step "ztms.ps1 hides HTTPTOOLKIT and PMS entries when not configured" {
+    $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nope/nope 2>&1 | Out-String
+    if ($output -match "(?m)^\s+(httptoolkit|pms) ") { throw "Expected no httptoolkit/pms entries. Got:`n$output" }
 }
 Test-Step "ztms.ps1 rejects an unknown direct-run target" {
     $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nope/nope 2>&1 | Out-String

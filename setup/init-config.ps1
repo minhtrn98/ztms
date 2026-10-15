@@ -95,6 +95,28 @@ if (-not [string]::IsNullOrWhiteSpace($fePath)) {
 Write-Host "`n--- Android emulator (optional) ---" -ForegroundColor Magenta
 $androidEmulatorPath = Read-WithDefault "Android SDK 'emulator' folder (blank to skip android\*.ps1 scripts)" "C:\Program Files (x86)\Android\android-sdk\emulator"
 
+# --- HTTP Toolkit fork (optional) -------------------------------------------
+Write-Host "`n--- Custom HTTP Toolkit (optional) ---" -ForegroundColor Magenta
+Write-Host "Local folder for the custom-http-toolkit clone: an existing clone, or where to clone it."
+$htkRepoPath = Read-Host "HTTP Toolkit repo folder, e.g. D:\OpenSources\custom-http-toolkit (blank to skip httptoolkit\*.ps1)"
+$htkGitUrl = ""
+$htkBranch = ""
+if (-not [string]::IsNullOrWhiteSpace($htkRepoPath)) {
+    $htkGitUrl = Read-WithDefault "Git URL (used only if the folder isn't cloned yet)" "https://github.com/xizot/custom-http-toolkit.git"
+    $htkBranch = Read-WithDefault "Branch to check out" "window-minh"
+}
+
+# --- PMS (optional) --------------------------------------------------------
+Write-Host "`n--- PMS desktop app (optional) ---" -ForegroundColor Magenta
+$pmsRoot = Read-Host "PMS DEV install folder, e.g. D:\PMS\PMSDev (blank to skip pms\*.ps1 scripts)"
+$pmsUpdateUrl = ""
+if (-not [string]::IsNullOrWhiteSpace($pmsRoot)) {
+    # PMSSetup.exe.config in that folder carries the update server URL — offer it as the default.
+    $setupConfig = Join-Path $pmsRoot "PMSSetup.exe.config"
+    $detectedUrl = if (Test-Path $setupConfig) { ([xml](Get-Content $setupConfig -Raw)).configuration.appSettings.add | Where-Object key -eq "NewUpdateUrl" | ForEach-Object value }
+    $pmsUpdateUrl = Read-WithDefault "PMS update server URL" "$detectedUrl"
+}
+
 # --- Assemble config -----------------------------------------------------
 $config = [ordered]@{
     reposRoot         = $reposRoot
@@ -129,11 +151,26 @@ $config = [ordered]@{
     android           = [ordered]@{
         emulatorPath = $androidEmulatorPath
     }
+    httptoolkit       = [ordered]@{
+        repoPath  = $htkRepoPath
+        gitUrl    = $htkGitUrl
+        branch    = $htkBranch
+        deployDir = ""
+    }
+    pms               = [ordered]@{
+        dev = [ordered]@{
+            root           = $pmsRoot
+            updateUrl      = $pmsUpdateUrl
+            product        = "PMSx64"
+            passwordEnvVar = "PMS_DEV_PASSWORD"
+        }
+    }
 }
 
 $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath -Encoding UTF8
 
 Write-Host "`nSaved config to $configPath" -ForegroundColor Green
 Write-Host "Edit this file by hand any time to adjust services, ports, or DB/Redis settings." -ForegroundColor Gray
-Write-Host "`nSecrets are NOT stored here — set these Windows user env vars when needed:" -ForegroundColor Gray
-Write-Host "  DEV_DB_PASSWORD, DEV_REDIS_PW  (scripts will prompt if unset)" -ForegroundColor Gray
+Write-Host "`nSecrets are NOT stored here — they're Windows user env vars (scripts prompt if unset)." -ForegroundColor Gray
+Write-Host "Run SETUP > doctor to see every env var/tool this config needs and what's still missing." -ForegroundColor Gray
+if ($htkRepoPath) { Write-Host "HTTP Toolkit configured — run HTTPTOOLKIT > install to clone/build it and put 'htk' on PATH." -ForegroundColor Gray }
