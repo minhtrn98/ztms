@@ -186,14 +186,52 @@ Test-Step "Hotkey.psm1 parses hotkey strings and rejects bad ones" {
     $hk = ConvertTo-TmsHotkey -Keys "Win+Shift+5"
     if ($hk.Vk -ne 0x35 -or ($hk.Modifiers -band 0xF) -ne 0xC) { throw "Win+Shift+5 -> $($hk | ConvertTo-Json -Compress)" }
     $hk = Get-TmsHotkey -Config ([PSCustomObject]@{})
-    if ($hk.Display -ne "Ctrl+Space" -or $hk.WidthPercent -ne 50 -or $hk.HeightPercent -ne 80) { throw "Missing hotkey section should default to Ctrl+Space 50x80, got $($hk | ConvertTo-Json -Compress)" }
-    $hk = Get-TmsHotkey -Config ([PSCustomObject]@{ hotkey = [PSCustomObject]@{ keys = "Alt+Q"; widthPercent = 5; heightPercent = 150 } })
+    if ($hk.Display -ne "Ctrl+Space" -or $hk.WidthPercent -ne 50 -or $hk.HeightPercent -ne 80 -or $hk.SearchHeightPercent -ne 35) { throw "Missing hotkey section should default to Ctrl+Space 50x80 (search 35), got $($hk | ConvertTo-Json -Compress)" }
+    if ($hk.FontSize -ne 14 -or $hk.Padding -ne 16 -or $hk.Opacity -ne 85 -or $hk.Acrylic) { throw "Missing hotkey section should default to font 14 / padding 16 / opacity 85 / no acrylic, got $($hk | ConvertTo-Json -Compress)" }
+    $hk = Get-TmsHotkey -Config ([PSCustomObject]@{ hotkey = [PSCustomObject]@{ keys = "Alt+Q"; widthPercent = 5; heightPercent = 150; fontSize = 99; padding = 0 } })
     if ($hk.WidthPercent -ne 20 -or $hk.HeightPercent -ne 100) { throw "Window percents should clamp to 20..100, got $($hk | ConvertTo-Json -Compress)" }
+    if ($hk.FontSize -ne 48 -or $hk.Padding -ne 0) { throw "fontSize should clamp to 48 and padding 0 should be kept, got $($hk | ConvertTo-Json -Compress)" }
     foreach ($bad in "Space", "Ctrl+Alt", "Ctrl+Nope", "Ctrl+A+B", "Ctrl+65") {
         $rejected = $false
         try { ConvertTo-TmsHotkey -Keys $bad | Out-Null } catch { $rejected = $true }
         if (-not $rejected) { throw "'$bad' was accepted" }
     }
+}
+Test-Step "Every ztms menu entry has a Desc (it's what search matches on)" {
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $testRoot "ztms.ps1"), [ref]$null, [ref]$null)
+    $assign = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$groups' }, $true)
+    $missing = @((Invoke-Expression $assign.Right.Extent.Text) | ForEach-Object { $_.Entries } | Where-Object { [string]::IsNullOrWhiteSpace($_.Desc) } | ForEach-Object Path)
+    if ($missing.Count -gt 0) { throw "No Desc: $($missing -join ', ')" }
+}
+Test-Step "MenuSearch.psm1 finds entries by meaning (synonyms, Vietnamese, no accents needed)" {
+    Import-Module (Join-Path $testRoot "modules\MenuSearch.psm1") -Force
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $testRoot "ztms.ps1"), [ref]$null, [ref]$null)
+    $assign = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$groups' }, $true)
+    $menuGroups = Invoke-Expression $assign.Right.Extent.Text
+    $expectTop = [ordered]@{
+        "tắt service"              = "backend\stop.ps1"
+        "TAT SERVICE"              = "backend\stop.ps1"
+        "kéo db dev"               = "db\clone-db-dev.ps1"
+        "database staging offline" = "db\restore-db-stg.ps1"
+        "khởi động lại proxy"      = "httptoolkit\restart.ps1"
+        "toạ độ bưu cục"           = "android\set-location.ps1"
+        "kiểm tra"                 = "setup\doctor.ps1"
+        "nhánh"                    = "common\checkout-branch.ps1"
+        "pul"                      = "common\pull-all.ps1"
+        "git pull"                 = "common\pull-all.ps1"
+        "pull db stg"              = "db\clone-db-stg.ps1"
+        "pull redis"               = "redis\clone-redis-dev.ps1"
+    }
+    foreach ($q in $expectTop.Keys) {
+        $top = @(Find-MenuEntries -Groups $menuGroups -Query $q)[0]
+        if (-not $top -or $top.Entry.Path -ne $expectTop[$q]) { throw "'$q' -> $(if ($top) { $top.Entry.Path } else { 'nothing' }), expected $($expectTop[$q])" }
+    }
+    if (@(Find-MenuEntries -Groups $menuGroups -Query "zzzq").Count -ne 0) { throw "'zzzq' should match nothing" }
+    if (@(Find-MenuEntries -Groups $menuGroups -Query "").Count -ne @($menuGroups | ForEach-Object { $_.Entries }).Count) { throw "Empty query should return every entry" }
+}
+Test-Step "ztms.ps1 suggests matches for an unknown target" {
+    $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") tat service 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 1 -or $output -notmatch "Did you mean:\s+backend stop-all") { throw "Expected 'Did you mean: backend stop-all' + exit 1. Got ($LASTEXITCODE):`n$output" }
 }
 foreach ($htkScript in "start", "stop", "restart", "build", "install") {
     Test-Step "httptoolkit/$htkScript.ps1 exits cleanly with no httptoolkit.repoPath configured" {
@@ -203,6 +241,10 @@ foreach ($htkScript in "start", "stop", "restart", "build", "install") {
 Test-Step "ztms.ps1 hides HTTPTOOLKIT and PMS entries when not configured" {
     $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nope/nope 2>&1 | Out-String
     if ($output -match "(?m)^\s+(httptoolkit|pms) ") { throw "Expected no httptoolkit/pms entries. Got:`n$output" }
+}
+Test-Step "ztms.ps1 --spotlight doesn't count as a direct-run target" {
+    $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") --spotlight nope/nope 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 1 -or $output -notmatch "Unknown script: nope/nope\r?\n") { throw "Expected 'Unknown script: nope/nope' (flag stripped) + exit 1. Got ($LASTEXITCODE):`n$output" }
 }
 Test-Step "ztms.ps1 rejects an unknown direct-run target" {
     $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nope/nope 2>&1 | Out-String

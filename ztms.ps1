@@ -13,6 +13,10 @@
 # Non-interactive: pass a target to skip the menu and run one script directly,
 # e.g. `ztms frontend run` (group + entry name) or `ztms frontend/run` (path
 # without .ps1). Exits with that script's exit code instead of looping.
+#
+# --spotlight (what the global hotkey launches): search box only — no
+# grouped list, no header — in a short window that grows while a script
+# runs and shrinks back afterwards.
 # ======================================
 
 Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
@@ -51,86 +55,86 @@ $groups = @(
     [ordered]@{
         Name    = "COMMON"
         Entries = @(
-            [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "checkout-branch"; Path = "common\checkout-branch.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "open-vscode"; Path = "common\open-vscode.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "open-working-folder"; Path = "common\open-working-folder.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "git pull every repo under reposRoot (in parallel)" }
+            [ordered]@{ DisplayName = "checkout-branch"; Path = "common\checkout-branch.ps1"; Desc = "Switch every repo to the same git branch" }
+            [ordered]@{ DisplayName = "open-vscode"; Path = "common\open-vscode.ps1"; Desc = "Open selected service repos in VS Code" }
+            [ordered]@{ DisplayName = "open-working-folder"; Path = "common\open-working-folder.ps1"; Desc = "Open the repos folder (reposRoot) in File Explorer" }
         )
     }
     [ordered]@{
         Name    = "BACKEND"
         Entries = @(
-            [ordered]@{ DisplayName = "run-published"; Path = "backend\run-published.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "publish"; Path = "backend\publish.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "stop-all"; Path = "backend\stop.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "build-run"; Path = "backend\run.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "run-published"; Path = "backend\run-published.ps1"; Desc = "Run services from their published build (fast start)" }
+            [ordered]@{ DisplayName = "publish"; Path = "backend\publish.ps1"; Desc = "Build selected services with dotnet publish into deployRoot" }
+            [ordered]@{ DisplayName = "stop-all"; Path = "backend\stop.ps1"; Desc = "Stop all running backend services" }
+            [ordered]@{ DisplayName = "build-run"; Path = "backend\run.ps1"; Desc = "Build + run selected services with dotnet run (dev mode)" }
         )
     }
     [ordered]@{
         Name    = "REDIS"
         Entries = @(
-            [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "redis\clone-redis-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[dev] restore"; Path = "redis\restore-redis-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[stg] clone-restore"; Path = "redis\clone-redis-stg.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[stg] restore"; Path = "redis\restore-redis-stg.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "redis\clone-redis-dev.ps1"; Desc = "Copy the dev Redis cache down into local Redis" }
+            [ordered]@{ DisplayName = "[dev] restore"; Path = "redis\restore-redis-dev.ps1"; Desc = "Re-apply the last downloaded dev Redis dump (offline)" }
+            [ordered]@{ DisplayName = "[stg] clone-restore"; Path = "redis\clone-redis-stg.ps1"; Desc = "Copy the staging Redis cache down into local Redis" }
+            [ordered]@{ DisplayName = "[stg] restore"; Path = "redis\restore-redis-stg.ps1"; Desc = "Re-apply the last downloaded staging Redis dump (offline)" }
         )
     }
     [ordered]@{
         Name    = "DATABASE"
         Entries = @(
-            [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "db\clone-db-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[dev] restore"; Path = "db\restore-db-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[stg] clone-restore"; Path = "db\clone-db-stg.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[stg] restore"; Path = "db\restore-db-stg.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[dev] clone-restore"; Path = "db\clone-db-dev.ps1"; Desc = "Dump the dev Postgres databases and restore them locally" }
+            [ordered]@{ DisplayName = "[dev] restore"; Path = "db\restore-db-dev.ps1"; Desc = "Re-apply the last downloaded dev database dumps (offline)" }
+            [ordered]@{ DisplayName = "[stg] clone-restore"; Path = "db\clone-db-stg.ps1"; Desc = "Dump the staging Postgres databases and restore them locally" }
+            [ordered]@{ DisplayName = "[stg] restore"; Path = "db\restore-db-stg.ps1"; Desc = "Re-apply the last downloaded staging database dumps (offline)" }
         )
     }
     [ordered]@{
         Name    = "FRONTEND"
         Entries = @(
-            [ordered]@{ DisplayName = "run"; Path = "frontend\run.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "open-vscode"; Path = "frontend\open-vscode.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "run"; Path = "frontend\run.ps1"; Desc = "Build and run the frontend web app in this terminal" }
+            [ordered]@{ DisplayName = "open-vscode"; Path = "frontend\open-vscode.ps1"; Desc = "Open the frontend repo in VS Code" }
         )
     }
     [ordered]@{
         Name    = "ANDROID"
         Entries = @(
-            [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "set-location"; Path = "android\set-location.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[dev] install-latest"; Path = "android\install-latest-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[stg] install-latest"; Path = "android\install-latest-stg.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "start"; Path = "android\start.ps1"; Desc = "Start an Android emulator (resumes its saved snapshot)" }
+            [ordered]@{ DisplayName = "start-default"; Path = "android\start-default.ps1"; Desc = "Cold-boot an Android emulator (ignores the saved snapshot)" }
+            [ordered]@{ DisplayName = "stop"; Path = "android\stop.ps1"; Desc = "Stop a running Android emulator" }
+            [ordered]@{ DisplayName = "set-location"; Path = "android\set-location.ps1"; Desc = "Set the emulator GPS location from lat,lng or a post office" }
+            [ordered]@{ DisplayName = "[dev] install-latest"; Path = "android\install-latest-dev.ps1"; Desc = "Install the latest dev APK build on a running emulator" }
+            [ordered]@{ DisplayName = "[stg] install-latest"; Path = "android\install-latest-stg.ps1"; Desc = "Install the latest staging APK build on a running emulator" }
         )
     }
     [ordered]@{
         Name    = "HTTPTOOLKIT"
         Entries = @(
-            [ordered]@{ DisplayName = "start"; Path = "httptoolkit\start.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "stop"; Path = "httptoolkit\stop.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "restart"; Path = "httptoolkit\restart.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "build"; Path = "httptoolkit\build.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "install"; Path = "httptoolkit\install.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "start"; Path = "httptoolkit\start.ps1"; Desc = "Start the custom HTTP Toolkit (proxy to intercept requests)" }
+            [ordered]@{ DisplayName = "stop"; Path = "httptoolkit\stop.ps1"; Desc = "Stop HTTP Toolkit" }
+            [ordered]@{ DisplayName = "restart"; Path = "httptoolkit\restart.ps1"; Desc = "Restart HTTP Toolkit" }
+            [ordered]@{ DisplayName = "build"; Path = "httptoolkit\build.ps1"; Desc = "Rebuild HTTP Toolkit from its source, redeploy and restart" }
+            [ordered]@{ DisplayName = "install"; Path = "httptoolkit\install.ps1"; Desc = "Clone/update the HTTP Toolkit fork and put htk on PATH" }
         )
     }
     [ordered]@{
         Name    = "PMS"
         Entries = @(
-            [ordered]@{ DisplayName = "[dev] start"; Path = "pms\start-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[dev] update"; Path = "pms\update-dev.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "[dev] install"; Path = "pms\install-dev.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "[dev] start"; Path = "pms\start-dev.ps1"; Desc = "Open the newest PMS dev build (copies the password)" }
+            [ordered]@{ DisplayName = "[dev] update"; Path = "pms\update-dev.ps1"; Desc = "Download the latest PMS dev build now" }
+            [ordered]@{ DisplayName = "[dev] install"; Path = "pms\install-dev.ps1"; Desc = "Set up PMS dev: desktop shortcut + auto-update task" }
         )
     }
     [ordered]@{
         Name    = "SETUP"
         Entries = @(
-            [ordered]@{ DisplayName = "doctor"; Path = "setup\doctor.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "export"; Path = "setup\export.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "import"; Path = "setup\import.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "install-hotkey"; Path = "setup\install-hotkey.ps1"; Desc = "" }
-            [ordered]@{ DisplayName = "uninstall-hotkey"; Path = "setup\uninstall-hotkey.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "doctor"; Path = "setup\doctor.ps1"; Desc = "Check what this machine's setup is missing" }
+            [ordered]@{ DisplayName = "init-config"; Path = "setup\init-config.ps1"; Desc = "Create or edit tms.config.json step by step" }
+            [ordered]@{ DisplayName = "set-env"; Path = "setup\set-env.ps1"; Desc = "Load env vars/secrets from tms.env.local (optionally persist)" }
+            [ordered]@{ DisplayName = "export"; Path = "setup\export.ps1"; Desc = "Back up config + secrets into one encrypted file" }
+            [ordered]@{ DisplayName = "import"; Path = "setup\import.ps1"; Desc = "Restore config + secrets from an export (new machine)" }
+            [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "Update ztms itself (git pull these scripts)" }
+            [ordered]@{ DisplayName = "install-hotkey"; Path = "setup\install-hotkey.ps1"; Desc = "Global hotkey (Ctrl+Space) that opens ztms from anywhere" }
+            [ordered]@{ DisplayName = "uninstall-hotkey"; Path = "setup\uninstall-hotkey.ps1"; Desc = "Remove the global ztms hotkey" }
         )
     }
 )
@@ -143,8 +147,13 @@ if ($hiddenMenuItems.Count -gt 0) {
     $groups = @($groups | Where-Object { $_.Entries.Count -gt 0 })
 }
 
-if ($args.Count -gt 0) {
-    $target = (($args -join " ").Trim() -replace '\\', '/').ToLowerInvariant()
+# --spotlight: opened by the global hotkey (see Hotkey.psm1). Search box only,
+# no grouped list, in a short window that grows while a script runs.
+$spotlight = @($args) -contains '--spotlight'
+$targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
+
+if ($targetArgs.Count -gt 0) {
+    $target = (($targetArgs -join " ").Trim() -replace '\\', '/').ToLowerInvariant()
     $match = $null
     foreach ($group in $groups) {
         foreach ($entry in $group.Entries) {
@@ -156,11 +165,23 @@ if ($args.Count -gt 0) {
     }
 
     if (-not $match) {
-        Write-Host "Unknown script: $($args -join ' ')" -ForegroundColor Red
-        Write-Host "Available:" -ForegroundColor Gray
-        foreach ($group in $groups) {
-            foreach ($entry in $group.Entries) {
-                Write-Host "  $($group.Name.ToLowerInvariant()) $($entry.DisplayName)" -ForegroundColor Gray
+        Write-Host "Unknown script: $($targetArgs -join ' ')" -ForegroundColor Red
+        # Not an exact name — treat it as a search (same as typing in the
+        # menu). ProjectMenu already loaded MenuSearch; importing it without
+        # -Force just exposes its functions here instead of rebuilding it.
+        Import-Module (Join-Path $PSScriptRoot "modules\MenuSearch.psm1")
+        $suggestions = @(Find-MenuEntries -Groups $groups -Query ($targetArgs -join ' ') | Select-Object -First 5)
+        if ($suggestions.Count -gt 0) {
+            Write-Host "Did you mean:" -ForegroundColor Gray
+            foreach ($s in $suggestions) {
+                Write-Host ("  {0,-34} {1}" -f "$($s.Group.ToLowerInvariant()) $($s.Entry.DisplayName)", $s.Entry.Desc) -ForegroundColor Gray
+            }
+        } else {
+            Write-Host "Available:" -ForegroundColor Gray
+            foreach ($group in $groups) {
+                foreach ($entry in $group.Entries) {
+                    Write-Host "  $($group.Name.ToLowerInvariant()) $($entry.DisplayName)" -ForegroundColor Gray
+                }
             }
         }
         exit 1
@@ -171,21 +192,33 @@ if ($args.Count -gt 0) {
     exit $LASTEXITCODE
 }
 
+$spotlightHotkey = $null
 while ($true) {
     Clear-Host
-    Write-Host "=== TMS scripts ===" -ForegroundColor Magenta
-    Write-Host "$PSScriptRoot`n" -ForegroundColor Gray
+    if (-not $spotlight) {
+        Write-Host "=== TMS scripts ===" -ForegroundColor Magenta
+        Write-Host "$PSScriptRoot`n" -ForegroundColor Gray
+    }
 
     # $latestVersion = Test-TmsUpdateAvailable -RepoRoot $PSScriptRoot
     # if ($latestVersion) {
     #     Write-Host "New version available: v$latestVersion (you have v$(Get-TmsLocalVersion -RepoRoot $PSScriptRoot)) - run 'update' from SETUP to upgrade.`n" -ForegroundColor Yellow
     # }
 
-    $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run"
+    $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run" -SearchOnly:$spotlight
 
     if (-not $selected) {
         Write-Host "`nBye." -ForegroundColor DarkYellow
         break
+    }
+
+    if ($spotlight) {
+        # Imported only now: its Add-Type compile would delay the search box
+        if (-not $spotlightHotkey) {
+            Import-Module (Join-Path $PSScriptRoot "modules\Hotkey.psm1") -Force
+            try { $spotlightHotkey = Get-TmsHotkey -Config $config } catch {}  # bad hotkey.keys: just don't resize
+        }
+        if ($spotlightHotkey) { Set-TmsSpotlightWindowSize -Hotkey $spotlightHotkey -Full }
     }
 
     $scriptPath = Join-Path $PSScriptRoot $selected.Path
@@ -197,4 +230,6 @@ while ($true) {
     [Console]::CursorVisible = $false
     $null = [Console]::ReadKey($true)
     [Console]::CursorVisible = $true
+
+    if ($spotlightHotkey) { Set-TmsSpotlightWindowSize -Hotkey $spotlightHotkey }
 }

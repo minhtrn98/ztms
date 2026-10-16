@@ -63,13 +63,33 @@ $config = Get-TmsConfig
   "Confirm & Run" pseudo-items, no selection = select all), `Show-Menu`
   (plain single-select arrow-key menu, generic/reusable), `Show-GroupedMenu`
   (single-select menu flattened across groups with non-selectable group
-  headers — what `ztms.ps1` itself uses), `Confirm-Prompt` (y/N prompt).
+  headers — what `ztms.ps1` itself uses; typing turns it into a flat,
+  best-first search result list via `Find-MenuEntries` (each entry's
+  `Desc` feeds the search only — it's deliberately not shown in the menu), Escape clears the query before it quits, digits jump
+  to groups only while the query is empty; `-SearchOnly` drops the grouped
+  list entirely for the hotkey window), `Confirm-Prompt` (y/N prompt).
+  Every row is cut to the window width — a wrapped row shifts every row
+  below it and breaks the in-place redraw.
   These have a specific ConPTY quirk workaround — see the comment above
   `Draw-Menu` in each function before changing cursor-position
   logic; Windows Terminal / VS Code's integrated terminal both report
   `BufferHeight == WindowHeight`, so rows must be reserved (blank lines
   written) before capturing `$top`, or Up/Down redraws break once the menu
   is taller than the visible window.
+- `modules/MenuSearch.psm1` — `Find-MenuEntries -Groups -Query`, the
+  offline "semantic" search behind the menu's type-to-search and
+  `ztms <unknown target>`'s "Did you mean" list. Text is lowercased and
+  accent-stripped (`ConvertTo-MenuSearchText`, so Vietnamese works with or
+  without accents); query words are expanded through `$script:Concepts`
+  (one `|`-separated synonym group per line, English + Vietnamese, greedy
+  multi-word phrases like "khởi động lại") and scored against DisplayName
+  (×3), group name (×2), Desc and Path (×1), synonyms at ×0.7. Entries must
+  match every term; if none do, the ones matching the most terms come back
+  flagged `Partial`. Typed words also prefix-match (narrowing while you
+  type); synonyms only match whole words or inflections, so "check" doesn't
+  hit "checkout". No model or network — keep it that way so it stays instant
+  on every keystroke. The smoke test pins expected top results for a few
+  queries; re-run it after touching concepts or Descs.
 - `modules/Android.psm1` — Android emulator helpers built on top of
   `config.android.emulatorPath` (no separate config for `adb.exe`; it's
   derived as `<emulatorPath>/../platform-tools/adb.exe`, falling back to a
@@ -138,18 +158,44 @@ $config = Get-TmsConfig
   `setup/hotkey-listener.ps1`, which `RegisterHotKey`s on its own thread and
   blocks in `GetMessage`. Each press toggles the window it opened (focus /
   minimize), or opens a new `wt -w new` window running `ztms.ps1` if that's
-  gone. The window is tracked by **handle** (the terminal window that
+  gone — launched as `ztms.ps1 --spotlight`: `Show-GroupedMenu -SearchOnly`
+  (search line + as many results as fit, no grouped list, no header) in a
+  window `hotkey.searchHeightPercent` tall; ztms.ps1 itself grows it to
+  `heightPercent` before running a picked script and shrinks it back after
+  (`Set-TmsSpotlightWindowSize` resizes the foreground window, i.e. itself,
+  on its own monitor; Hotkey.psm1 is imported only at that point so its
+  `Add-Type` compile doesn't delay the search box). It then waits until
+  `[Console]::WindowHeight` actually changes — the resize reaches the
+  console asynchronously, and redrawing before it lands lays the menu out
+  for the old height, so after a shrink the search line scrolls off the top. The window is tracked by **handle** (the terminal window that
   appears after launch), not by title — Windows Terminal with
   `showTerminalTitleInTitlebar: false` titles every window "Terminal".
-  wt applies its global `launchMode` (e.g. `maximized`) to every new window
-  — no CLI flag turns that off and it ignores the launch show-state — so
-  `WaitForNewWindow` busy-polls from before launch, catches the window
-  while wt still has it hidden, and calls `Center` the instant it's shown:
-  one `SetWindowPlacement` straight to `hotkey.widthPercent`/
-  `heightPercent` of the work area of the monitor under the cursor
-  (per-monitor-DPI-aware pixels). That leaves it maximized on screen for
-  ~5ms instead of a visible flash; polling with sleeps, or restore +
-  `SetWindowPos` as two calls, brings the flash back.
+  It's launched as `wt -w new --focus`: focus mode hides the tab row and
+  title bar (the Spotlight look, at no cost), and — unlike every other way
+  of launching wt — it overrides the user's global `launchMode`, so a
+  `maximized` setting doesn't apply (wt ignores the launch show-state, and
+  `--size`/`--pos` don't beat `launchMode`). Side effect: tab titles aren't
+  in the UI Automation tree, so identify the window by handle, not tab name.
+  It runs with `-p` the hidden "ztms (hotkey)" profile that
+  `Set-TmsHotkeyWtProfile` writes into the user's WT `settings.json` (fixed
+  GUID; a copy of their default profile's look + `hotkey.fontSize`/
+  `padding`/`opacity`/`acrylic` — opacity and useAcrylic are always written
+  explicitly, since defaults may hold e.g. opacity 0 + acrylic, which is
+  invisible without acrylic and solid when Windows transparency effects are
+  off; one-time `settings.json.ztms-backup`; removed by uninstall). It
+  must be in `settings.json`, not a JSON fragment: the user's
+  `profiles.defaults` outrank fragment profiles, so a fragment can set
+  padding but not a font size or color scheme that defaults already set.
+  Editing goes through `Update-TmsWtSettings` (ConvertFrom-Json -AsHashtable
+  keeps key order; WT reloads on the write by itself).
+  `WaitForNewWindow` busy-polls from before launch, catches the window while
+  wt still has it hidden (~100ms before it's shown) and `SetWindowPos`es it
+  (no `SWP_SHOWWINDOW`) to `hotkey.widthPercent`/`searchHeightPercent` of the
+  work area of the monitor under the cursor (per-monitor-DPI-aware pixels),
+  so it first appears already in place; if it's shown maximized anyway
+  (non-focus launch), it's re-placed with one `SetWindowPlacement` the
+  instant it's visible (~5ms maximized). Polling with sleeps, or restore +
+  `SetWindowPos` as two calls, brings back a visible flash.
   `Activate` falls back to `AttachThreadInput` because a plain
   `SetForegroundWindow` from the background listener is intermittently
   refused. Install waits until the hotkey is actually taken (the listener
@@ -169,7 +215,9 @@ that script, and the menu always regains control afterward. Escape exits
 `ztms.ps1`. Adding a new script means adding an entry to the right group's
 `Entries` list in `ztms.ps1` (create a new group if it doesn't fit
 `BE`/`FE`/`DB`/`Redis`/`Setup`) — it is not auto-discovered from the
-filesystem. This also means environment variables set by one menu pick
+filesystem. Give it a `Desc` (a short English sentence with the words
+people would search for): search matches on it, and the smoke test fails
+on an entry without one. This also means environment variables set by one menu pick
 (e.g. `901_set-env.ps1`) do **not** propagate to a script picked afterward
 in the same `ztms` session; persisting at the user level
 (`[System.Environment]::SetEnvironmentVariable($k, $v, "User")`) is the

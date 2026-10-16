@@ -60,10 +60,13 @@ namespace Ztms {
         [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
         [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT point);
         [DllImport("user32.dll")] static extern IntPtr MonitorFromPoint(POINT point, uint flags);
+        [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
         [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
         [DllImport("user32.dll")] static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT placement);
         [DllImport("user32.dll")] static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT placement);
         [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+        [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
 
         const uint WM_HOTKEY = 0x0312;
 
@@ -75,13 +78,36 @@ namespace Ztms {
             SetThreadDpiAwarenessContext(new IntPtr(-4));  // PER_MONITOR_AWARE_V2
             POINT cursor;
             GetCursorPos(out cursor);
+            Place(hWnd, MonitorFromPoint(cursor, 2), widthPercent, heightPercent);  // MONITOR_DEFAULTTONEAREST
+        }
+
+        // Same, but re-centered on the monitor the window is already on — for
+        // resizing it in place (search box <-> full size) without it jumping
+        // to wherever the mouse happens to be.
+        public static void Resize(IntPtr hWnd, int widthPercent, int heightPercent) {
+            SetThreadDpiAwarenessContext(new IntPtr(-4));
+            Place(hWnd, MonitorFromWindow(hWnd, 2), widthPercent, heightPercent);
+        }
+
+        // True if hWnd is a visible terminal window (see ListTerminalWindows).
+        public static bool IsTerminalWindow(IntPtr hWnd) { return TerminalWindows(false).Contains(hWnd); }
+
+        // The centered rect (screen coordinates) on that monitor's work area.
+        static bool TargetRect(IntPtr monitor, int widthPercent, int heightPercent, out int x, out int y, out int w, out int h) {
+            x = y = w = h = 0;
             var info = new MONITORINFO();
             info.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-            if (!GetMonitorInfo(MonitorFromPoint(cursor, 2), ref info)) return;  // MONITOR_DEFAULTTONEAREST
+            if (!GetMonitorInfo(monitor, ref info)) return false;
             var work = info.rcWork;
             int areaW = work.Right - work.Left, areaH = work.Bottom - work.Top;
-            int w = areaW * widthPercent / 100, h = areaH * heightPercent / 100;
-            int x = work.Left + (areaW - w) / 2, y = work.Top + (areaH - h) / 2;
+            w = areaW * widthPercent / 100; h = areaH * heightPercent / 100;
+            x = work.Left + (areaW - w) / 2; y = work.Top + (areaH - h) / 2;
+            return true;
+        }
+
+        static void Place(IntPtr hWnd, IntPtr monitor, int widthPercent, int heightPercent) {
+            int x, y, w, h;
+            if (!TargetRect(monitor, widthPercent, heightPercent, out x, out y, out w, out h)) return;
 
             // One SetWindowPlacement call un-maximizes straight into the
             // centered rect (ShowWindow restore + SetWindowPos would flash the
@@ -147,22 +173,39 @@ namespace Ztms {
         public static List<IntPtr> ListTerminalWindowsIncludingHidden() { return TerminalWindows(true); }
 
         // Waits (up to timeoutMs) for a terminal window that isn't in `before`
-        // and centers it the moment it becomes visible. Windows Terminal
-        // creates the window hidden and shows it already maximized when
-        // launchMode is "maximized" (no CLI flag overrides that, and it
-        // ignores the launch show-state), so busy-polling from creation and
-        // centering right at show time keeps the maximized frame from
-        // lingering on screen. Returns the window, or Zero if none appeared.
+        // and gets it centered on the monitor under the mouse. Windows
+        // Terminal creates the window hidden ~100ms before showing it, so
+        // busy-polling from launch catches it while hidden and moves it then:
+        // it first appears already in place. If it's shown maximized anyway
+        // (wt's global launchMode, when not launched with --focus), it's
+        // re-placed the instant it's shown, which keeps the maximized frame
+        // to a few ms. Returns the window, or Zero if none appeared.
         public static IntPtr WaitForNewWindow(IntPtr[] before, int timeoutMs, int widthPercent, int heightPercent) {
+            SetThreadDpiAwarenessContext(new IntPtr(-4));  // PER_MONITOR_AWARE_V2
+            POINT cursor;
+            GetCursorPos(out cursor);
+            IntPtr monitor = MonitorFromPoint(cursor, 2);  // MONITOR_DEFAULTTONEAREST
+            int x, y, w, h;
+            bool haveTarget = TargetRect(monitor, widthPercent, heightPercent, out x, out y, out w, out h);
+
             var known = new HashSet<IntPtr>(before);
             var watch = System.Diagnostics.Stopwatch.StartNew();
             IntPtr found = IntPtr.Zero;
+            bool moved = false;
             while (watch.ElapsedMilliseconds < timeoutMs) {
                 if (found == IntPtr.Zero) {
-                    foreach (var h in TerminalWindows(true)) { if (!known.Contains(h)) { found = h; break; } }
+                    foreach (var hw in TerminalWindows(true)) { if (!known.Contains(hw)) { found = hw; break; } }
+                }
+                if (found != IntPtr.Zero && haveTarget && !moved && !IsWindowVisible(found)) {
+                    SetWindowPos(found, IntPtr.Zero, x, y, w, h, 0x0014);  // SWP_NOZORDER | SWP_NOACTIVATE (no SWP_SHOWWINDOW: stays hidden)
+                    moved = true;
                 }
                 if (found != IntPtr.Zero && IsWindowVisible(found)) {
-                    Center(found, widthPercent, heightPercent);
+                    RECT r;
+                    GetWindowRect(found, out r);
+                    if (IsZoomed(found) || r.Left != x || r.Top != y || r.Right - r.Left != w || r.Bottom - r.Top != h) {
+                        Place(found, monitor, widthPercent, heightPercent);
+                    }
                     return found;
                 }
                 System.Threading.Thread.Yield();
@@ -216,16 +259,118 @@ function ConvertTo-TmsHotkey {
 function Get-TmsHotkey {
     # hotkey.keys from config, defaulting to Ctrl+Space when the section is
     # missing (or there's no config at all). Throws on an invalid value.
-    # Also carries the window size: hotkey.widthPercent/heightPercent of the
-    # monitor's work area (default 50 x 80, clamped to 20..100).
+    # Also carries the window's look: size as a percentage of the monitor's
+    # work area (clamped to 20..100) — widthPercent (default 50),
+    # heightPercent (80, while a script runs), searchHeightPercent (35, the
+    # search box the hotkey opens) — plus fontSize (14), padding (16 px),
+    # opacity (85 %) and acrylic (false: plain see-through; true: blurred,
+    # needs Windows' "Transparency effects" on) for its Windows Terminal
+    # profile (Set-TmsHotkeyWtProfile).
     param($Config)
     $section = if ($Config -and $Config.hotkey) { $Config.hotkey }
     $hotkey = ConvertTo-TmsHotkey -Keys $(if ($section) { $section.keys })
-    foreach ($dim in @(@("widthPercent", 50), @("heightPercent", 80))) {
-        $value = if ($section -and $section.($dim[0])) { [int]$section.($dim[0]) } else { $dim[1] }
-        $hotkey | Add-Member -NotePropertyName ($dim[0].Substring(0, 1).ToUpper() + $dim[0].Substring(1)) -NotePropertyValue ([Math]::Min(100, [Math]::Max(20, $value)))
+    # name, default, min, max
+    foreach ($s in @(@("widthPercent", 50, 20, 100), @("heightPercent", 80, 20, 100), @("searchHeightPercent", 35, 20, 100), @("fontSize", 14, 6, 48), @("padding", 16, 0, 64), @("opacity", 85, 0, 100))) {
+        $value = if ($section -and $null -ne $section.($s[0])) { [int]$section.($s[0]) } else { $s[1] }
+        $hotkey | Add-Member -NotePropertyName ($s[0].Substring(0, 1).ToUpper() + $s[0].Substring(1)) -NotePropertyValue ([Math]::Min($s[3], [Math]::Max($s[2], $value)))
     }
+    $hotkey | Add-Member -NotePropertyName Acrylic -NotePropertyValue ([bool]($section -and $section.acrylic))
     $hotkey
+}
+
+# The hotkey window's own Windows Terminal profile, kept in the user's
+# settings.json. A JSON fragment would be tidier, but the user's
+# profiles.defaults outrank fragment profiles, so a fragment can't change
+# the font size (or anything else defaults already set) — only settings.json
+# entries can. Fixed GUID so install/uninstall find exactly this entry.
+$script:WtProfileGuid = "{6f3c2a1e-9b4d-4e57-8a2f-7d1c0e5b3a90}"
+$script:WtProfileName = "ztms (hotkey)"
+
+function Get-TmsWtSettingsPath {
+    # Stable (Store), Preview, then unpackaged Windows Terminal; $null if none.
+    foreach ($p in @(
+            (Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"),
+            (Join-Path $env:LOCALAPPDATA "Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json"),
+            (Join-Path $env:LOCALAPPDATA "Microsoft\Windows Terminal\settings.json"))) {
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+    return $null
+}
+
+function Update-TmsWtSettings {
+    <#
+    Read-modify-write of Windows Terminal's settings.json: $Change gets the
+    parsed settings (ordered hashtables) and edits them in place. Keeps a
+    one-time backup (<settings.json>.ztms-backup, from before ztms first
+    touched it). WT notices the write and reloads by itself. Returns $false
+    (and changes nothing) if there's no settings.json or it can't be parsed.
+    #>
+    param([Parameter(Mandatory)][scriptblock]$Change)
+    $path = Get-TmsWtSettingsPath
+    if (-not $path) { return $false }
+    try { $settings = [IO.File]::ReadAllText($path) | ConvertFrom-Json -AsHashtable }
+    catch {
+        Write-Host "Couldn't parse $path ($($_.Exception.Message)) — leaving it alone." -ForegroundColor Yellow
+        return $false
+    }
+    $backup = "$path.ztms-backup"
+    if (-not (Test-Path -LiteralPath $backup)) { Copy-Item -LiteralPath $path -Destination $backup }
+    & $Change $settings
+    [IO.File]::WriteAllText($path, ($settings | ConvertTo-Json -Depth 64), [Text.UTF8Encoding]::new($false))
+    return $true
+}
+
+function Set-TmsHotkeyWtProfile {
+    <#
+    Adds/replaces the hidden "ztms (hotkey)" profile: the look of the user's
+    default profile (color scheme, font face, opacity, ...; profiles.defaults
+    still apply underneath) with hotkey.fontSize and hotkey.padding on top.
+    Also drops any profile stub left by a ztms fragment ("source": "ztms").
+    #>
+    param([Parameter(Mandatory)]$Hotkey)
+    Update-TmsWtSettings -Change {
+        param($settings)
+        if (-not $settings.profiles) { $settings.profiles = [ordered]@{} }
+        if ($settings.profiles -is [System.Collections.IList]) { $settings.profiles = [ordered]@{ list = $settings.profiles } }  # legacy flat list
+        $list = [Collections.Generic.List[object]]::new()
+        foreach ($p in @($settings.profiles.list)) { if ($p -and $p.guid -ne $script:WtProfileGuid -and $p.source -ne "ztms") { $list.Add($p) } }
+
+        $wtProfile = [ordered]@{ guid = $script:WtProfileGuid; name = $script:WtProfileName; hidden = $true; commandline = "pwsh.exe -NoProfile" }
+        $default = $list | Where-Object { $_.guid -eq $settings.defaultProfile } | Select-Object -First 1
+        if ($default) {
+            foreach ($key in $default.Keys) {
+                if ($key -notin "guid", "name", "source", "commandline", "hidden", "icon", "startingDirectory", "tabTitle", "elevate", "fontSize", "fontFace", "padding", "opacity", "useAcrylic") { $wtProfile[$key] = $default[$key] }
+            }
+        }
+        $font = [ordered]@{}
+        if ($default -and $default.font) { foreach ($key in $default.font.Keys) { $font[$key] = $default.font[$key] } }
+        $font.size = $Hotkey.FontSize
+        $wtProfile.font = $font
+        $wtProfile.padding = "$($Hotkey.Padding)"
+        # Set explicitly: profiles.defaults may carry opacity 0 + acrylic, which
+        # without acrylic (or with Windows transparency effects off) would mean
+        # a fully transparent or fully solid background
+        $wtProfile.opacity = $Hotkey.Opacity
+        $wtProfile.useAcrylic = $Hotkey.Acrylic
+        $list.Add($wtProfile)
+        $settings.profiles.list = $list
+    }
+}
+
+function Remove-TmsHotkeyWtProfile {
+    # Undo Set-TmsHotkeyWtProfile (no-op if it isn't there).
+    $path = Get-TmsWtSettingsPath
+    if (-not $path -or -not ([IO.File]::ReadAllText($path).Contains($script:WtProfileGuid) -or [IO.File]::ReadAllText($path).Contains('"source": "ztms"'))) { return $false }
+    Update-TmsWtSettings -Change {
+        param($settings)
+        $settings.profiles.list = @($settings.profiles.list | Where-Object { $_.guid -ne $script:WtProfileGuid -and $_.source -ne "ztms" })
+    }
+}
+
+function Test-TmsHotkeyWtProfile {
+    # Is the profile in settings.json? (cheap text check — runs on every hotkey press)
+    $path = Get-TmsWtSettingsPath
+    return [bool]($path -and [IO.File]::ReadAllText($path).Contains($script:WtProfileGuid))
 }
 
 function Get-TmsHotkeyListenerProcess {
@@ -242,7 +387,10 @@ function Show-TmsHotkeyMenu {
     What one hotkey press does: toggle the ztms window this listener opened
     earlier, or — if it's gone (ztms exited / window closed) — open a new one,
     in a fresh Windows Terminal window when wt is installed, otherwise a plain
-    console window — centered, not maximized (see Center).
+    console window — centered, not maximized (see Center). It opens as a
+    short search box: ztms.ps1 --spotlight shows only the search line + a few
+    results, and grows the window itself while a script runs
+    (Set-TmsSpotlightWindowSize).
     #>
     param(
         [Parameter(Mandatory)]$Hotkey,
@@ -269,22 +417,52 @@ function Show-TmsHotkeyMenu {
     [void]$native::AllowSetForegroundWindow(-1)  # ASFW_ANY
     $before = [IntPtr[]]@($native::ListTerminalWindowsIncludingHidden())
     if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
-        # -w new: a window of its own even with windowingBehavior=useExisting
-        Start-Process wt.exe -ArgumentList "-w new new-tab --title $($script:HotkeyTabTitle) --suppressApplicationTitle `"$pwsh`" -NoProfile -ExecutionPolicy Bypass -File `"$ztms`""
+        # -w new: a window of its own even with windowingBehavior=useExisting.
+        # --focus: focus mode — no tab row, no title bar (Spotlight-like), and
+        # it overrides launchMode, so the window is never shown maximized.
+        # -p: the hotkey's own profile (bigger font + padding) once install-hotkey added it
+        $profileArg = if (Test-TmsHotkeyWtProfile) { "-p `"$($script:WtProfileGuid)`" " } else { "" }
+        Start-Process wt.exe -ArgumentList "-w new --focus new-tab $profileArg--title $($script:HotkeyTabTitle) --suppressApplicationTitle `"$pwsh`" -NoProfile -ExecutionPolicy Bypass -File `"$ztms`" --spotlight"
     } else {
-        Start-Process $pwsh -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ztms`""
+        Start-Process $pwsh -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ztms`" --spotlight"
     }
 
     # Remember the first terminal window that shows up as "ours" (up to 5s),
     # centered as it appears (WaitForNewWindow), and make sure it's the one in
     # front — the launch alone doesn't always win focus
-    $script:MenuWindow = $native::WaitForNewWindow($before, 5000, $Hotkey.WidthPercent, $Hotkey.HeightPercent)
+    $script:MenuWindow = $native::WaitForNewWindow($before, 5000, $Hotkey.WidthPercent, $Hotkey.SearchHeightPercent)
     if ($script:MenuWindow -ne [IntPtr]::Zero) {
         # wt may still apply launchMode a beat after first showing the window — re-center if so
         Start-Sleep -Milliseconds 150
-        if ($native::IsZoomed($script:MenuWindow)) { $native::Center($script:MenuWindow, $Hotkey.WidthPercent, $Hotkey.HeightPercent) }
+        if ($native::IsZoomed($script:MenuWindow)) { $native::Center($script:MenuWindow, $Hotkey.WidthPercent, $Hotkey.SearchHeightPercent) }
         if ($native::GetForegroundWindow() -ne $script:MenuWindow) { $native::Activate($script:MenuWindow) }
     }
+}
+
+function Set-TmsSpotlightWindowSize {
+    <#
+    Called by ztms.ps1 --spotlight from inside the hotkey window: -Full
+    before running a script (room for its output), without it afterwards
+    (back to the short search box). Resizes the foreground window — that's
+    this one, the user just pressed a key in it — and does nothing if the
+    foreground window isn't a terminal.
+
+    Returns only once the console itself reports the new size: the resize
+    reaches the console (through wt/ConPTY) asynchronously, and drawing the
+    menu before it lands lays it out for the old height — after shrinking,
+    the terminal then scrolls the search line off the top.
+    #>
+    param(
+        [Parameter(Mandatory)]$Hotkey,
+        [switch]$Full
+    )
+    $native = [Ztms.HotkeyNative]
+    $hwnd = $native::GetForegroundWindow()
+    if (-not $native::IsTerminalWindow($hwnd)) { return }
+    $rowsBefore = [Console]::WindowHeight
+    $native::Resize($hwnd, $Hotkey.WidthPercent, $(if ($Full) { $Hotkey.HeightPercent } else { $Hotkey.SearchHeightPercent }))
+    # Up to 1s; normally a few tens of ms. (Already the right size = no change to wait for, just the timeout.)
+    for ($i = 0; $i -lt 50 -and [Console]::WindowHeight -eq $rowsBefore; $i++) { Start-Sleep -Milliseconds 20 }
 }
 
 function Start-TmsHotkeyListener {
@@ -357,10 +535,16 @@ function Install-TmsHotkey {
         exit 1
     }
     Write-Host "Scheduled task: '$($script:HotkeyTaskName)' (at logon, running now)" -ForegroundColor Green
+
+    if (Set-TmsHotkeyWtProfile -Hotkey $Hotkey) {
+        Write-Host "Windows Terminal profile: '$($script:WtProfileName)' (hidden; font $($Hotkey.FontSize), padding $($Hotkey.Padding), opacity $($Hotkey.Opacity)%$(if ($Hotkey.Acrylic) { ', acrylic' })) in $(Get-TmsWtSettingsPath)" -ForegroundColor Green
+        Write-Host "  backup of your settings from before ztms first changed them: $(Get-TmsWtSettingsPath).ztms-backup" -ForegroundColor Gray
+    }
 }
 
 function Uninstall-TmsHotkey {
     Stop-TmsHotkeyListener
+    if (Remove-TmsHotkeyWtProfile) { Write-Host "Removed Windows Terminal profile '$($script:WtProfileName)'." -ForegroundColor Green }
     if (Get-ScheduledTask -TaskName $script:HotkeyTaskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $script:HotkeyTaskName -Confirm:$false
         Write-Host "Removed scheduled task '$($script:HotkeyTaskName)'." -ForegroundColor Green
@@ -386,4 +570,4 @@ function Get-TmsHotkeyStatus {
     return $rows
 }
 
-Export-ModuleMember -Function ConvertTo-TmsHotkey, Get-TmsHotkey, Get-TmsHotkeyListenerProcess, Stop-TmsHotkeyListener, Show-TmsHotkeyMenu, Start-TmsHotkeyListener, Test-TmsHotkeyAvailable, Install-TmsHotkey, Uninstall-TmsHotkey, Get-TmsHotkeyStatus
+Export-ModuleMember -Function ConvertTo-TmsHotkey, Get-TmsHotkey, Get-TmsHotkeyListenerProcess, Stop-TmsHotkeyListener, Show-TmsHotkeyMenu, Set-TmsSpotlightWindowSize, Start-TmsHotkeyListener, Test-TmsHotkeyAvailable, Install-TmsHotkey, Uninstall-TmsHotkey, Get-TmsHotkeyStatus

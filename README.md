@@ -135,17 +135,39 @@ release, which breaks fixed shortcuts. With `pms.dev` configured:
 | PMS > [dev] start | Opens the newest build and copies the login password (`pms.dev.passwordEnvVar` user env var) to the clipboard |
 | PMS > [dev] update | Downloads + unzips the latest build now; toasts on install/error; keeps the 2 newest version folders |
 
+## Searching the menu
+
+Just start typing in the `ztms` menu: the list filters to the best matches
+by name, group and description, so you don't need to know the exact script
+name. It understands synonyms in English and Vietnamese, accents optional —
+e.g. `tắt service` → BACKEND stop-all, `kéo db dev` → DATABASE [dev]
+clone-restore, `toa do buu cuc` → ANDROID set-location. Up/Down + Enter to
+run, Backspace to edit, Esc clears the search (Esc again quits).
+
+The same search runs for `ztms <words>` when the words aren't an exact
+script name: it prints "Did you mean" with the top matches.
+
 ## Global hotkey (optional)
 
-Spotlight-style: press **Ctrl+Space** anywhere in Windows to open the ztms
-menu in its own Windows Terminal window (centered on the screen under the
-mouse, not maximized), press it again to hide it
-(minimize), again to bring it back. Escape in the menu closes it.
+Spotlight-style: press **Ctrl+Space** anywhere in Windows to open a ztms
+search box in its own Windows Terminal window (short, centered on the
+screen under the mouse, no tab row or title bar — Windows Terminal's focus
+mode) — no full menu, just type what you
+want to do (see "Searching the menu") and Enter. The window grows while the
+script runs and shrinks back to the search box afterwards. Press the hotkey
+again to hide it (minimize), again to bring it back; Escape closes it.
 
 | Menu | What it does |
 |---|---|
 | SETUP > install-hotkey | Registers a "ztms Hotkey" scheduled task that starts a headless listener at logon, and starts it now. Re-run after changing `hotkey.keys`. |
-| SETUP > uninstall-hotkey | Stops the listener and removes the task |
+| SETUP > uninstall-hotkey | Stops the listener, removes the task and the Windows Terminal profile |
+
+install-hotkey also adds one hidden profile, "ztms (hotkey)", to your Windows
+Terminal `settings.json` — a copy of your default profile's look with a
+bigger font and more padding, used only by the hotkey window. (It has to live
+in `settings.json`: your `profiles.defaults` would override the font size of
+anything else.) Your settings from before ztms first touched them are kept
+as `settings.json.ztms-backup` next to it.
 
 The hotkey is global, so it takes Ctrl+Space away from every other app
 (e.g. VS Code's "trigger suggest"). Pick another combo with `hotkey.keys`
@@ -226,7 +248,9 @@ working directory, e.g.:
 | `httptoolkit.*` | Optional `{ repoPath, gitUrl, branch, deployDir }` for the HTTPTOOLKIT menu group — `repoPath` is an existing clone or where to clone `gitUrl`; `branch` is checked out by install; `deployDir` (optional) is persisted as `HTK_DEPLOY_DIR`. Entries are hidden when `repoPath` is blank |
 | `pms.dev.*` | Optional `{ root, updateUrl, product, passwordEnvVar }` for the PMS menu group — `root` is the PMS install folder (e.g. `D:\PMS\PMSDev`), `updateUrl` the update server (the `NewUpdateUrl` in `PMSSetup.exe.config`), `product` defaults to `PMSx64`. PMS entries are hidden when `root` is blank |
 | `hotkey.keys` | Optional global hotkey for SETUP > install-hotkey, e.g. `"Ctrl+Space"` (default when missing), `"Ctrl+Alt+Z"`, `"Win+Shift+F1"` — modifiers `Ctrl`/`Alt`/`Shift`/`Win` plus one key; at least one modifier required |
-| `hotkey.widthPercent` / `hotkey.heightPercent` | Optional size of the hotkey's ztms window as a percentage of the screen's work area (default `50` / `80`, clamped to 20–100). The window is always centered on the screen under the mouse and never maximized, whatever Windows Terminal's `launchMode` says |
+| `hotkey.widthPercent` / `hotkey.heightPercent` / `hotkey.searchHeightPercent` | Optional size of the hotkey's ztms window as a percentage of the screen's work area, clamped to 20–100: width (default `50`), height while a script runs (`80`), and height of the search box it opens as (`35`).
+| `hotkey.fontSize` / `hotkey.padding` | Optional font size (default `14`, clamped 6–48) and padding in px (default `16`, 0–64) of the hotkey window's Windows Terminal profile. Re-run SETUP > install-hotkey after changing them |
+| `hotkey.opacity` / `hotkey.acrylic` | Optional background opacity of the hotkey window in % (default `85` — see-through; `100` = solid) and whether to blur what's behind it (`acrylic`, default `false`; needs Windows Settings > Personalization > Colors > *Transparency effects* on, otherwise the background shows solid). Re-run SETUP > install-hotkey after changing them | The window is always centered on the screen under the mouse and never maximized, whatever Windows Terminal's `launchMode` says |
 | `hiddenMenuItems` | Optional array of script paths (e.g. `"backend/run.ps1"`, matched against each menu entry's `Path`, `\`/`/` and case insensitive) to hide from the `ztms` menu — the scripts still exist and run directly, they're just left off the picker |
 
 Nothing sensitive belongs in this file — only paths, names, ports, and

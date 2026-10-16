@@ -1,6 +1,7 @@
 # Shared interactive checkbox menu, deduplicated from the original per-script copies.
 
 Import-Module (Join-Path $PSScriptRoot "MenuTheme.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "MenuSearch.psm1") -Force
 
 function Show-ProjectSelection {
     <#
@@ -162,12 +163,23 @@ function Show-GroupedMenu {
     Each group's Name is rendered as a non-selectable header, numbered
     (1-9) so pressing that digit key jumps the cursor straight to the
     group's first entry; Up/Down skip over headers so only actual entries
-    can be highlighted. Returns the selected entry object (from
-    Group.Entries), or $null on Escape.
+    can be highlighted.
+
+    Typing searches: the query is matched against names, group names and
+    each entry's Desc — which is search-only, never shown (Find-MenuEntries in MenuSearch.psm1 — synonyms, English +
+    Vietnamese, accents optional) and the list turns into a flat, best-first
+    result list. Backspace edits the query, Escape clears it (a second
+    Escape quits); digits jump to groups only while the query is empty.
+    Returns the selected entry object (from Group.Entries), or $null on
+    Escape.
+
+    -SearchOnly (ztms.ps1 --spotlight, the hotkey window): no grouped list —
+    just the search line, and as many results as fit the (short) window.
     #>
     param(
         [Parameter(Mandatory)]$Groups,
-        [string]$Prompt = "Select an option"
+        [string]$Prompt = "Select an option",
+        [switch]$SearchOnly
     )
 
     $rows = @()
@@ -179,8 +191,7 @@ function Show-GroupedMenu {
         $rows += [ordered]@{ IsHeader = $true; Label = $headerLabel; Entry = $null }
         $groupHeaderIndex[$groupNumber] = $rows.Count - 1
         foreach ($entry in $group.Entries) {
-            $label = "{0,-32} {1}" -f $entry.DisplayName, $entry.Desc
-            $rows += [ordered]@{ IsHeader = $false; Label = $label; Entry = $entry }
+            $rows += [ordered]@{ IsHeader = $false; Label = $entry.DisplayName; Entry = $entry }
         }
     }
 
@@ -201,75 +212,181 @@ function Show-GroupedMenu {
         if ($null -ne $target) { $groupJumpTarget[$num] = $target }
     }
 
+    $groupWidth = (($Groups | ForEach-Object { $_.Name.Length }) | Measure-Object -Maximum).Maximum + 2
+    # Every row is cut to the window width — a row that wrapped would push
+    # all rows below it down a line and break the in-place redraw.
+    $width = [Math]::Max(40, [Console]::WindowWidth - 1)
+
     $cursor = $selectableIndices[0]
+    $query = ""
+    $results = @()
+    $resultCursor = 0
+
+    function Write-MenuRow {
+        # One full-width row: $Text, then $Tail in its own color, cut/padded to $width.
+        param([string]$Text, $Color, [string]$Tail = "", $TailColor = $Color)
+        if ($Text.Length -gt $width) { $Text = $Text.Substring(0, $width) }
+        $room = $width - $Text.Length
+        if ($Tail.Length -gt $room) { $Tail = $Tail.Substring(0, $room) }
+        Write-Host $Text -ForegroundColor $Color -NoNewline
+        Write-Host $Tail.PadRight($room) -ForegroundColor $TailColor
+    }
 
     function Draw-Menu {
         param($Top)
+        # Hide the real cursor while the rows are written, then park it right
+        # after the query on the search line and show it again — so the search
+        # box gets the terminal's own blinking caret, like a normal text box.
+        [Console]::CursorVisible = $false
+        Write-MenuBody -Top $Top
+        [Console]::SetCursorPosition([Math]::Min($width - 1, "Search: ".Length + $query.Length), $Top)
+        [Console]::CursorVisible = $true
+    }
+
+    function Write-MenuBody {
+        param($Top)
+        [Console]::SetCursorPosition(0, $Top)
+
+        if ($query) {
+            $note = if ($results.Count -gt 0 -and $results[0].Partial) { "   (no exact match - closest results)" } else { "" }
+            Write-MenuRow "Search: $query" $MenuTheme.Search $note $MenuTheme.Desc
+            $drawn = 0
+            if ($results.Count -eq 0) { Write-MenuRow "    No matches." $MenuTheme.Error; $drawn++ }
+            for ($i = 0; $i -lt $results.Count; $i++) {
+                $r = $results[$i]
+                $pointer = if ($i -eq $resultCursor) { "▸" } else { " " }
+                $text = "$pointer   " + $r.Group.PadRight($groupWidth) + $r.Entry.DisplayName
+                $color = if ($i -eq $resultCursor) { $MenuTheme.Cursor } else { $MenuTheme.Normal }
+                Write-MenuRow $text $color
+                $drawn++
+            }
+            # Blank out the rest of the reserved area (the full list, or in
+            # -SearchOnly the results area)
+            for (; $drawn -lt $listRows; $drawn++) { Write-MenuRow "" $MenuTheme.Normal }
+            return
+        }
+
+        if ($SearchOnly) {
+            Write-MenuRow "Search: " $MenuTheme.Search
+            for ($i = 0; $i -lt $listRows; $i++) { Write-MenuRow "" $MenuTheme.Normal }
+            return
+        }
+
+        Write-MenuRow "Search: " $MenuTheme.Hint "type to filter by name or description" $MenuTheme.Desc
         $activeHeaderIndex = 0
         for ($i = 0; $i -lt $rows.Count; $i++) { if ($rows[$i].IsHeader -and $i -le $cursor) { $activeHeaderIndex = $i } }
-        [Console]::SetCursorPosition(0, $Top)
         for ($i = 0; $i -lt $rows.Count; $i++) {
             if ($rows[$i].IsHeader) {
                 $headerColor = if ($i -eq $activeHeaderIndex) { $MenuTheme.HeaderActive } else { $MenuTheme.HeaderInactive }
-                Write-Host ("$($rows[$i].Label)".PadRight(70)) -ForegroundColor $headerColor
+                Write-MenuRow $rows[$i].Label $headerColor
             } else {
                 $pointer = if ($i -eq $cursor) { "▸" } else { " " }
-                $line = "$pointer   $($rows[$i].Label)".PadRight(70)
-                if ($i -eq $cursor) {
-                    Write-Host $line -ForegroundColor $MenuTheme.Cursor
-                } else {
-                    Write-Host $line -ForegroundColor $MenuTheme.Normal
-                }
+                $color = if ($i -eq $cursor) { $MenuTheme.Cursor } else { $MenuTheme.Normal }
+                Write-MenuRow "$pointer   $($rows[$i].Label)" $color
             }
         }
     }
 
-    Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor $MenuTheme.Hint
+    if ($SearchOnly) {
+        # No prompt/hint line — the search box is the whole UI (keys: Up/Down,
+        # Enter, Esc). Results get whatever rows the window has left (it's
+        # sized small on purpose).
+        $listRows = [Math]::Min(15, [Math]::Max(3, [Console]::WindowHeight - [Console]::CursorTop - 2))
+    } else {
+        Write-Host "$Prompt (type to search, Up/Down: move, 1-9: jump to group, Enter: select, Esc: clear search / quit):" -ForegroundColor $MenuTheme.Hint
+        $listRows = $rows.Count
+    }
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
     # the cursor position once the list is taller than the visible window.
-    1..$rows.Count | ForEach-Object { Write-Host "" }
-    $top = [Console]::CursorTop - $rows.Count
+    # +1 for the search line above the list.
+    $height = $listRows + 1
+    1..$height | ForEach-Object { Write-Host "" }
+    $top = [Console]::CursorTop - $height
     [Console]::CursorVisible = $false
     Draw-Menu -Top $top
+    # Warm the search up (synonym table + per-entry cache, ~100ms) now that
+    # the menu is on screen and before the first key — so the first
+    # keystroke isn't the slow one. Keys typed meanwhile just queue up.
+    $null = Find-MenuEntries -Groups $Groups -Query "a"
 
     $selectedEntry = $null
     $done = $false
     while (-not $done) {
         $key = [Console]::ReadKey($true)
-        switch ($key.Key) {
+        $searching = $query.Length -gt 0
+        $ctrl = ($key.Modifiers -band [ConsoleModifiers]::Control) -ne 0
+        # Ctrl+W = Ctrl+Backspace (delete word), the usual terminal alias
+        $keyName = if ($ctrl -and $key.Key -eq [ConsoleKey]::W) { 'Backspace' } else { "$($key.Key)" }
+        switch ($keyName) {
             'UpArrow' {
-                $pos = [array]::IndexOf($selectableIndices, $cursor)
-                $pos = ($pos - 1 + $selectableIndices.Count) % $selectableIndices.Count
-                $cursor = $selectableIndices[$pos]
+                if ($searching) {
+                    if ($results.Count -gt 0) { $resultCursor = ($resultCursor - 1 + $results.Count) % $results.Count }
+                } elseif (-not $SearchOnly) {
+                    $pos = [array]::IndexOf($selectableIndices, $cursor)
+                    $cursor = $selectableIndices[($pos - 1 + $selectableIndices.Count) % $selectableIndices.Count]
+                }
                 Draw-Menu -Top $top
             }
             'DownArrow' {
-                $pos = [array]::IndexOf($selectableIndices, $cursor)
-                $pos = ($pos + 1) % $selectableIndices.Count
-                $cursor = $selectableIndices[$pos]
+                if ($searching) {
+                    if ($results.Count -gt 0) { $resultCursor = ($resultCursor + 1) % $results.Count }
+                } elseif (-not $SearchOnly) {
+                    $pos = [array]::IndexOf($selectableIndices, $cursor)
+                    $cursor = $selectableIndices[($pos + 1) % $selectableIndices.Count]
+                }
                 Draw-Menu -Top $top
             }
             'Enter' {
-                $selectedEntry = $rows[$cursor].Entry
-                $done = $true
+                if ($searching) {
+                    if ($results.Count -gt 0) { $selectedEntry = $results[$resultCursor].Entry; $done = $true }
+                } elseif (-not $SearchOnly) {
+                    $selectedEntry = $rows[$cursor].Entry
+                    $done = $true
+                }
             }
             'Escape' {
-                $selectedEntry = $null
-                $done = $true
+                if ($searching) {
+                    $query = ""
+                    Draw-Menu -Top $top
+                } else {
+                    $selectedEntry = $null
+                    $done = $true
+                }
+            }
+            'Backspace' {
+                if ($searching) {
+                    # Ctrl+Backspace: drop the last word and the spaces after it,
+                    # like a normal text box ("pull db " -> "pull ")
+                    $query = if ($ctrl) { $query -replace '\S*\s*$', '' } else { $query.Substring(0, $query.Length - 1) }
+                    $results = @(Find-MenuEntries -Groups $Groups -Query $query | Select-Object -First $listRows)
+                    $resultCursor = 0
+                    Draw-Menu -Top $top
+                }
             }
             default {
-                if ($key.KeyChar -match '^[1-9]$') {
-                    $num = [int]"$($key.KeyChar)"
+                $ch = $key.KeyChar
+                if (-not $searching -and -not $SearchOnly -and $ch -match '^[1-9]$') {
+                    $num = [int]"$ch"
                     if ($groupJumpTarget.ContainsKey($num)) {
                         $cursor = $groupJumpTarget[$num]
                         Draw-Menu -Top $top
                     }
+                } elseif (-not [char]::IsControl($ch) -and ($searching -or $ch -ne ' ')) {
+                    $query += $ch
+                    $results = @(Find-MenuEntries -Groups $Groups -Query $query | Select-Object -First $listRows)
+                    $resultCursor = 0
+                    Draw-Menu -Top $top
                 }
             }
         }
     }
+    # A search result list is shorter than the reserved area (the rest is
+    # blanked) — park the cursor right under the last result so whatever runs
+    # next prints there, not below a gap of empty rows.
+    $usedRows = if ($query) { 1 + [Math]::Max(1, $results.Count) } elseif ($SearchOnly) { 1 } else { $height }
+    [Console]::SetCursorPosition(0, $top + $usedRows)
     [Console]::CursorVisible = $true
     return $selectedEntry
 }

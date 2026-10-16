@@ -10,6 +10,8 @@ $MenuTheme = [ordered]@{
     Hint           = "Cyan" # instructional line under the prompt
     Prompt         = "Cyan"     # Confirm-Prompt question text
     Error          = "Red"      # cancelled / no-entries messages
+    Desc           = "DarkGray" # secondary text, e.g. the search box placeholder
+    Search         = "White"    # the search box text in Show-GroupedMenu
 }
 
 Export-ModuleMember -Variable MenuTheme
