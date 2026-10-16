@@ -63,5 +63,10 @@
   "pms": {
     "dev": { "root": "", "updateUrl": "", "product": "PMSx64", "passwordEnvVar": "PMS_DEV_PASSWORD" }
   },
+  "hotkey": {
+    "keys": "Ctrl+Space",
+    "widthPercent": 50,
+    "heightPercent": 80
+  },
   "hiddenMenuItems": []
 }

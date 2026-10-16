@@ -7,12 +7,14 @@
 #     whether tms.env.local values were persisted / are out of date
 #   - custom HTTP Toolkit clone/branch/PATH/release, if httptoolkit is configured
 #   - PMS shortcut + auto-update task, if pms.dev is configured
+#   - global hotkey + its listener, if SETUP > install-hotkey was run
 # Read-only — changes nothing. Exits 1 if anything is FAIL (WARN is fine).
 # ======================================
 
 Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\TmsConfig.psm1") -Force
 Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\Pms.psm1") -Force
 Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\HttpToolkit.psm1") -Force
+Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\Hotkey.psm1") -Force
 
 $results = @()
 function Add-Check {
@@ -104,6 +106,9 @@ if ($config -and $config.pms -and $config.pms.dev -and $config.pms.dev.root) {
     $pms = Get-TmsPmsDevConfig -Config $config
     foreach ($row in Get-TmsPmsStatus -Pms $pms) { Add-Check "PMS" $row.Name $row.Status $row.Detail }
 }
+
+# --- Hotkey ---------------------------------------------------------------------------------
+foreach ($row in Get-TmsHotkeyStatus -Config $config) { Add-Check "Hotkey" $row.Name $row.Status $row.Detail }
 
 # --- Report ---------------------------------------------------------------------------------
 $colors = @{ OK = "Green"; WARN = "Yellow"; FAIL = "Red" }

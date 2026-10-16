@@ -135,11 +135,31 @@ release, which breaks fixed shortcuts. With `pms.dev` configured:
 | PMS > [dev] start | Opens the newest build and copies the login password (`pms.dev.passwordEnvVar` user env var) to the clipboard |
 | PMS > [dev] update | Downloads + unzips the latest build now; toasts on install/error; keeps the 2 newest version folders |
 
+## Global hotkey (optional)
+
+Spotlight-style: press **Ctrl+Space** anywhere in Windows to open the ztms
+menu in its own Windows Terminal window (centered on the screen under the
+mouse, not maximized), press it again to hide it
+(minimize), again to bring it back. Escape in the menu closes it.
+
+| Menu | What it does |
+|---|---|
+| SETUP > install-hotkey | Registers a "ztms Hotkey" scheduled task that starts a headless listener at logon, and starts it now. Re-run after changing `hotkey.keys`. |
+| SETUP > uninstall-hotkey | Stops the listener and removes the task |
+
+The hotkey is global, so it takes Ctrl+Space away from every other app
+(e.g. VS Code's "trigger suggest"). Pick another combo with `hotkey.keys`
+in `tms.config.json` (e.g. `"Ctrl+Alt+Space"`, `"Win+Shift+Z"`). Listener
+errors go to `%TEMP%\ztms-hotkey.log`.
+
 ## Uninstall
 
 ```powershell
 Remove-Item "$env:LocalAppData\Microsoft\WindowsApps\ztms.cmd"
 ```
+
+(If you installed the global hotkey, run **SETUP > uninstall-hotkey** first —
+it removes the "ztms Hotkey" scheduled task.)
 
 That's the only thing `install-ztms.ps1` puts outside this repo — deleting
 it removes the global `ztms` command (open a new terminal to confirm it's
@@ -205,6 +225,8 @@ working directory, e.g.:
 | `frontend.*` | `{ path, buildCommand, startCommand }` for `003_run-frontend.ps1` — `path` is absolute or relative to `reposRoot`; `buildCommand` is optional (skipped if blank), `startCommand` is required |
 | `httptoolkit.*` | Optional `{ repoPath, gitUrl, branch, deployDir }` for the HTTPTOOLKIT menu group — `repoPath` is an existing clone or where to clone `gitUrl`; `branch` is checked out by install; `deployDir` (optional) is persisted as `HTK_DEPLOY_DIR`. Entries are hidden when `repoPath` is blank |
 | `pms.dev.*` | Optional `{ root, updateUrl, product, passwordEnvVar }` for the PMS menu group — `root` is the PMS install folder (e.g. `D:\PMS\PMSDev`), `updateUrl` the update server (the `NewUpdateUrl` in `PMSSetup.exe.config`), `product` defaults to `PMSx64`. PMS entries are hidden when `root` is blank |
+| `hotkey.keys` | Optional global hotkey for SETUP > install-hotkey, e.g. `"Ctrl+Space"` (default when missing), `"Ctrl+Alt+Z"`, `"Win+Shift+F1"` — modifiers `Ctrl`/`Alt`/`Shift`/`Win` plus one key; at least one modifier required |
+| `hotkey.widthPercent` / `hotkey.heightPercent` | Optional size of the hotkey's ztms window as a percentage of the screen's work area (default `50` / `80`, clamped to 20–100). The window is always centered on the screen under the mouse and never maximized, whatever Windows Terminal's `launchMode` says |
 | `hiddenMenuItems` | Optional array of script paths (e.g. `"backend/run.ps1"`, matched against each menu entry's `Path`, `\`/`/` and case insensitive) to hide from the `ztms` menu — the scripts still exist and run directly, they're just left off the picker |
 
 Nothing sensitive belongs in this file — only paths, names, ports, and

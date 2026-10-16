@@ -179,6 +179,22 @@ Test-Step "Get-TmsUserEnvVars derives env var names from config" {
         if ($names -notcontains $expected) { throw "Missing $expected (got: $($names -join ', '))" }
     }
 }
+Test-Step "Hotkey.psm1 parses hotkey strings and rejects bad ones" {
+    Import-Module (Join-Path $testRoot "modules\Hotkey.psm1") -Force
+    $hk = ConvertTo-TmsHotkey -Keys "ctrl+space"
+    if ($hk.Vk -ne 0x20 -or ($hk.Modifiers -band 0xF) -ne 0x2 -or $hk.Display -ne "Ctrl+Space") { throw "ctrl+space -> $($hk | ConvertTo-Json -Compress)" }
+    $hk = ConvertTo-TmsHotkey -Keys "Win+Shift+5"
+    if ($hk.Vk -ne 0x35 -or ($hk.Modifiers -band 0xF) -ne 0xC) { throw "Win+Shift+5 -> $($hk | ConvertTo-Json -Compress)" }
+    $hk = Get-TmsHotkey -Config ([PSCustomObject]@{})
+    if ($hk.Display -ne "Ctrl+Space" -or $hk.WidthPercent -ne 50 -or $hk.HeightPercent -ne 80) { throw "Missing hotkey section should default to Ctrl+Space 50x80, got $($hk | ConvertTo-Json -Compress)" }
+    $hk = Get-TmsHotkey -Config ([PSCustomObject]@{ hotkey = [PSCustomObject]@{ keys = "Alt+Q"; widthPercent = 5; heightPercent = 150 } })
+    if ($hk.WidthPercent -ne 20 -or $hk.HeightPercent -ne 100) { throw "Window percents should clamp to 20..100, got $($hk | ConvertTo-Json -Compress)" }
+    foreach ($bad in "Space", "Ctrl+Alt", "Ctrl+Nope", "Ctrl+A+B", "Ctrl+65") {
+        $rejected = $false
+        try { ConvertTo-TmsHotkey -Keys $bad | Out-Null } catch { $rejected = $true }
+        if (-not $rejected) { throw "'$bad' was accepted" }
+    }
+}
 foreach ($htkScript in "start", "stop", "restart", "build", "install") {
     Test-Step "httptoolkit/$htkScript.ps1 exits cleanly with no httptoolkit.repoPath configured" {
         Invoke-Guarded "httptoolkit\$htkScript.ps1" "No httptoolkit.repoPath configured"

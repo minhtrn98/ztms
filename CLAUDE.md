@@ -131,6 +131,30 @@ $config = Get-TmsConfig
   desktop shortcut via a temp `.lnk` in `$env:PUBLIC` because
   `WScript.Shell` can't save to a non-ASCII path (e.g. a Vietnamese username
   in the Desktop path).
+- `modules/Hotkey.psm1` — Spotlight-style global hotkey (`hotkey.keys`,
+  default `Ctrl+Space`) behind `setup/install-hotkey.ps1`/
+  `uninstall-hotkey.ps1`. `Install-TmsHotkey` registers a "ztms Hotkey"
+  scheduled task (at logon, `conhost --headless`, no time limit) running
+  `setup/hotkey-listener.ps1`, which `RegisterHotKey`s on its own thread and
+  blocks in `GetMessage`. Each press toggles the window it opened (focus /
+  minimize), or opens a new `wt -w new` window running `ztms.ps1` if that's
+  gone. The window is tracked by **handle** (the terminal window that
+  appears after launch), not by title — Windows Terminal with
+  `showTerminalTitleInTitlebar: false` titles every window "Terminal".
+  wt applies its global `launchMode` (e.g. `maximized`) to every new window
+  — no CLI flag turns that off and it ignores the launch show-state — so
+  `WaitForNewWindow` busy-polls from before launch, catches the window
+  while wt still has it hidden, and calls `Center` the instant it's shown:
+  one `SetWindowPlacement` straight to `hotkey.widthPercent`/
+  `heightPercent` of the work area of the monitor under the cursor
+  (per-monitor-DPI-aware pixels). That leaves it maximized on screen for
+  ~5ms instead of a visible flash; polling with sleeps, or restore +
+  `SetWindowPos` as two calls, brings the flash back.
+  `Activate` falls back to `AttachThreadInput` because a plain
+  `SetForegroundWindow` from the background listener is intermittently
+  refused. Install waits until the hotkey is actually taken (the listener
+  needs a moment for `Add-Type`) before reporting success. Errors from the
+  headless listener go to `%TEMP%\ztms-hotkey.log`.
 
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
 reachable as the global `ztms` command once installed). It's a `$groups`

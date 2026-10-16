@@ -129,6 +129,8 @@ $groups = @(
             [ordered]@{ DisplayName = "export"; Path = "setup\export.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "import"; Path = "setup\import.ps1"; Desc = "" }
             [ordered]@{ DisplayName = "update"; Path = "setup\update.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "install-hotkey"; Path = "setup\install-hotkey.ps1"; Desc = "" }
+            [ordered]@{ DisplayName = "uninstall-hotkey"; Path = "setup\uninstall-hotkey.ps1"; Desc = "" }
         )
     }
 )
