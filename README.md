@@ -135,14 +135,16 @@ release, which breaks fixed shortcuts. With `pms.dev` configured:
 | PMS > [dev] start | Opens the newest build and copies the login password (`pms.dev.passwordEnvVar` user env var) to the clipboard |
 | PMS > [dev] update | Downloads + unzips the latest build now; toasts on install/error; keeps the 2 newest version folders |
 
-## Searching the menu
+## Searching
 
-Just start typing in the `ztms` menu: the list filters to the best matches
-by name, group and description, so you don't need to know the exact script
-name. It understands synonyms in English and Vietnamese, accents optional —
+The hotkey window (see "Global hotkey" below) is a search box: type and the
+best matches by name, group and description show up, so you don't need to
+know the exact script name. (The regular `ztms` menu has no search — it's
+the grouped list with Up/Down and 1–9.) It understands synonyms in English and Vietnamese, accents optional —
 e.g. `tắt service` → BACKEND stop-all, `kéo db dev` → DATABASE [dev]
 clone-restore, `toa do buu cuc` → ANDROID set-location. Up/Down + Enter to
-run, Backspace to edit, Esc clears the search (Esc again quits).
+run, Backspace (Ctrl+Backspace for a whole word) to edit, Esc clears the
+search (Esc again closes it).
 
 The same search runs for `ztms <words>` when the words aren't an exact
 script name: it prints "Did you mean" with the top matches.
@@ -153,7 +155,7 @@ Spotlight-style: press **Ctrl+Space** anywhere in Windows to open a ztms
 search box in its own Windows Terminal window (short, centered on the
 screen under the mouse, no tab row or title bar — Windows Terminal's focus
 mode) — no full menu, just type what you
-want to do (see "Searching the menu") and Enter. The window grows while the
+want to do (see "Searching") and Enter. The window grows while the
 script runs and shrinks back to the search box afterwards. Press the hotkey
 again to hide it (minimize), again to bring it back; Escape closes it.
 

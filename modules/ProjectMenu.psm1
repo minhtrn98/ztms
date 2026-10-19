@@ -163,18 +163,17 @@ function Show-GroupedMenu {
     Each group's Name is rendered as a non-selectable header, numbered
     (1-9) so pressing that digit key jumps the cursor straight to the
     group's first entry; Up/Down skip over headers so only actual entries
-    can be highlighted.
+    can be highlighted. Returns the selected entry object (from
+    Group.Entries), or $null on Escape.
 
-    Typing searches: the query is matched against names, group names and
-    each entry's Desc — which is search-only, never shown (Find-MenuEntries in MenuSearch.psm1 — synonyms, English +
-    Vietnamese, accents optional) and the list turns into a flat, best-first
-    result list. Backspace edits the query, Escape clears it (a second
-    Escape quits); digits jump to groups only while the query is empty.
-    Returns the selected entry object (from Group.Entries), or $null on
-    Escape.
-
-    -SearchOnly (ztms.ps1 --spotlight, the hotkey window): no grouped list —
-    just the search line, and as many results as fit the (short) window.
+    -SearchOnly (ztms.ps1 --spotlight, the hotkey window) swaps all that for
+    a search box: no grouped list, just the search line (with the terminal's
+    own blinking caret) and as many results as fit the (short) window.
+    Typing matches names, group names and each entry's Desc — search-only,
+    never shown (Find-MenuEntries in MenuSearch.psm1 — synonyms, English +
+    Vietnamese, accents optional) — best-first. Backspace / Ctrl+Backspace
+    edit the query, Escape clears it (a second Escape quits). The plain menu
+    has no search at all.
     #>
     param(
         [Parameter(Mandatory)]$Groups,
@@ -221,6 +220,9 @@ function Show-GroupedMenu {
     $query = ""
     $results = @()
     $resultCursor = 0
+    # First row shown when the list is taller than the window (a hashtable so
+    # the nested draw function can update it)
+    $view = @{ Scroll = 0 }
 
     function Write-MenuRow {
         # One full-width row: $Text, then $Tail in its own color, cut/padded to $width.
@@ -234,13 +236,16 @@ function Show-GroupedMenu {
 
     function Draw-Menu {
         param($Top)
-        # Hide the real cursor while the rows are written, then park it right
-        # after the query on the search line and show it again — so the search
-        # box gets the terminal's own blinking caret, like a normal text box.
+        # Hide the real cursor while the rows are written. In the search box,
+        # park it right after the query and show it again — the terminal's
+        # own blinking caret, like a normal text box. The plain menu keeps it
+        # hidden (the ▸ pointer is the cursor there).
         [Console]::CursorVisible = $false
         Write-MenuBody -Top $Top
-        [Console]::SetCursorPosition([Math]::Min($width - 1, "Search: ".Length + $query.Length), $Top)
-        [Console]::CursorVisible = $true
+        if ($SearchOnly) {
+            [Console]::SetCursorPosition([Math]::Min($width - 1, "Search: ".Length + $query.Length), $Top)
+            [Console]::CursorVisible = $true
+        }
     }
 
     function Write-MenuBody {
@@ -272,10 +277,17 @@ function Show-GroupedMenu {
             return
         }
 
-        Write-MenuRow "Search: " $MenuTheme.Hint "type to filter by name or description" $MenuTheme.Desc
         $activeHeaderIndex = 0
         for ($i = 0; $i -lt $rows.Count; $i++) { if ($rows[$i].IsHeader -and $i -le $cursor) { $activeHeaderIndex = $i } }
-        for ($i = 0; $i -lt $rows.Count; $i++) {
+        # Only $listRows rows fit (less than the whole list in a short window):
+        # scroll just enough to keep the cursor in view, plus the row above it
+        # so its group header shows when moving up into a group
+        $first = $view.Scroll
+        if ($cursor -lt $first + 1) { $first = $cursor - 1 }
+        if ($cursor -gt $first + $listRows - 1) { $first = $cursor - $listRows + 1 }
+        $first = [Math]::Max(0, [Math]::Min($first, $rows.Count - $listRows))
+        $view.Scroll = $first
+        for ($i = $first; $i -lt $first + $listRows; $i++) {
             if ($rows[$i].IsHeader) {
                 $headerColor = if ($i -eq $activeHeaderIndex) { $MenuTheme.HeaderActive } else { $MenuTheme.HeaderInactive }
                 Write-MenuRow $rows[$i].Label $headerColor
@@ -291,25 +303,33 @@ function Show-GroupedMenu {
         # No prompt/hint line — the search box is the whole UI (keys: Up/Down,
         # Enter, Esc). Results get whatever rows the window has left (it's
         # sized small on purpose).
-        $listRows = [Math]::Min(15, [Math]::Max(3, [Console]::WindowHeight - [Console]::CursorTop - 2))
+        $listRows = [Math]::Min(15, [Math]::Max(1, [Console]::WindowHeight - [Console]::CursorTop - 2))
+        $height = $listRows + 1  # + the search line above the results
     } else {
-        Write-Host "$Prompt (type to search, Up/Down: move, 1-9: jump to group, Enter: select, Esc: clear search / quit):" -ForegroundColor $MenuTheme.Hint
-        $listRows = $rows.Count
+        Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor $MenuTheme.Hint
+        # The whole list if it fits, else as many rows as the window has
+        # (keeping the prompt line visible) and the list scrolls
+        $listRows = [Math]::Max(1, [Math]::Min($rows.Count, [Console]::WindowHeight - 2))
+        $height = $listRows
     }
 
     # See the comment in Show-ProjectSelection — reserve rows before computing
     # $top so ConPTY-based terminals (Windows Terminal / VS Code) don't desync
     # the cursor position once the list is taller than the visible window.
-    # +1 for the search line above the list.
-    $height = $listRows + 1
+    # Those terminals also report BufferHeight == WindowHeight, so the
+    # reserved block must fit in the window — reserving more than that made
+    # $top negative (SetCursorPosition threw) in short terminals like VS
+    # Code's panel; hence $listRows above is capped to the window height.
     1..$height | ForEach-Object { Write-Host "" }
-    $top = [Console]::CursorTop - $height
+    $top = [Math]::Max(0, [Console]::CursorTop - $height)
     [Console]::CursorVisible = $false
     Draw-Menu -Top $top
-    # Warm the search up (synonym table + per-entry cache, ~100ms) now that
-    # the menu is on screen and before the first key — so the first
-    # keystroke isn't the slow one. Keys typed meanwhile just queue up.
-    $null = Find-MenuEntries -Groups $Groups -Query "a"
+    if ($SearchOnly) {
+        # Warm the search up (synonym table + per-entry cache, ~100ms) now that
+        # the box is on screen and before the first key — so the first
+        # keystroke isn't the slow one. Keys typed meanwhile just queue up.
+        $null = Find-MenuEntries -Groups $Groups -Query "a"
+    }
 
     $selectedEntry = $null
     $done = $false
@@ -367,11 +387,14 @@ function Show-GroupedMenu {
             }
             default {
                 $ch = $key.KeyChar
-                if (-not $searching -and -not $SearchOnly -and $ch -match '^[1-9]$') {
-                    $num = [int]"$ch"
-                    if ($groupJumpTarget.ContainsKey($num)) {
-                        $cursor = $groupJumpTarget[$num]
-                        Draw-Menu -Top $top
+                if (-not $SearchOnly) {
+                    # plain menu: digits jump to a group, other keys do nothing
+                    if ($ch -match '^[1-9]$') {
+                        $num = [int]"$ch"
+                        if ($groupJumpTarget.ContainsKey($num)) {
+                            $cursor = $groupJumpTarget[$num]
+                            Draw-Menu -Top $top
+                        }
                     }
                 } elseif (-not [char]::IsControl($ch) -and ($searching -or $ch -ne ' ')) {
                     $query += $ch

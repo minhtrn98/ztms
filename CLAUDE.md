@@ -63,11 +63,13 @@ $config = Get-TmsConfig
   "Confirm & Run" pseudo-items, no selection = select all), `Show-Menu`
   (plain single-select arrow-key menu, generic/reusable), `Show-GroupedMenu`
   (single-select menu flattened across groups with non-selectable group
-  headers — what `ztms.ps1` itself uses; typing turns it into a flat,
-  best-first search result list via `Find-MenuEntries` (each entry's
-  `Desc` feeds the search only — it's deliberately not shown in the menu), Escape clears the query before it quits, digits jump
-  to groups only while the query is empty; `-SearchOnly` drops the grouped
-  list entirely for the hotkey window), `Confirm-Prompt` (y/N prompt).
+  headers — what `ztms.ps1` itself uses; the plain menu has **no search**
+  (deliberately — Up/Down, 1–9 group jump, Enter, Esc). `-SearchOnly` (the
+  hotkey window only) replaces the list with a search box: the terminal's
+  real blinking caret after the query, best-first results via
+  `Find-MenuEntries` (each entry's `Desc` feeds the search only — it's
+  deliberately not shown), Backspace/Ctrl+Backspace(=Ctrl+W), Escape clears
+  the query before it quits), `Confirm-Prompt` (y/N prompt).
   Every row is cut to the window width — a wrapped row shifts every row
   below it and breaks the in-place redraw.
   These have a specific ConPTY quirk workaround — see the comment above
