@@ -22,6 +22,7 @@ $script:Concepts = @(
     "pull | fetch | git | kéo | kéo code | lấy code | cập nhật code | update code"
     "branch | checkout | switch | nhánh | chuyển nhánh | đổi nhánh"
     "vscode | vs code | code | editor | ide"
+    "visual studio | studio | sln | solution | devenv"
     "folder | explorer | directory | thư mục"
     "publish | build | deploy | release | compile | triển khai | đóng gói | biên dịch"
     "backend | be | api | service | dotnet | net | dịch vụ"
@@ -100,7 +101,13 @@ function Get-MenuSearchTerms {
     # phrases ("khởi động lại", "post office") are matched greedily first.
     param([string]$Query)
     Initialize-MenuSearchConcepts
-    $tokens = @((ConvertTo-MenuSearchText $Query) -split ' ' | Where-Object { $_ })
+    $raw = @((ConvertTo-MenuSearchText $Query) -split ' ' | Where-Object { $_ })
+    # A lone "vs" means Visual Studio ("order vs"); "vs code" — or "vs c..."
+    # while it's still being typed — stays VS Code.
+    $tokens = @(for ($k = 0; $k -lt $raw.Count; $k++) {
+        $next = if ($k + 1 -lt $raw.Count) { $raw[$k + 1] } else { "" }
+        if ($raw[$k] -eq "vs" -and -not ($next -and "code".StartsWith($next))) { "visual"; "studio" } else { $raw[$k] }
+    })
     $terms = @()
     $i = 0
     while ($i -lt $tokens.Count) {

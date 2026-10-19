@@ -58,6 +58,7 @@ $groups = @(
             [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "git pull every repo under reposRoot (in parallel)" }
             [ordered]@{ DisplayName = "checkout-branch"; Path = "common\checkout-branch.ps1"; Desc = "Switch every repo to the same git branch" }
             [ordered]@{ DisplayName = "open-vscode"; Path = "common\open-vscode.ps1"; Desc = "Open selected service repos in VS Code" }
+            [ordered]@{ DisplayName = "open-vs"; Path = "common\open-vs.ps1"; Desc = "Open selected service solutions in Visual Studio" }
         )
     }
     [ordered]@{
@@ -151,18 +152,26 @@ if ($hiddenMenuItems.Count -gt 0) {
 $spotlight = @($args) -contains '--spotlight'
 $targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
 
-# Hotkey window only: one "VS CODE" entry per configured service (whose repo
-# folder exists), so typing "order code" / "vs code order" opens that repo
-# straight away. Args are passed to the script; Quick = run it and close the
-# window, Spotlight-style, instead of the usual full-size run + "press any
-# key". Not in the plain menu — it would add a row per service.
-if ($spotlight -and $config -and $config.services -and $config.reposRoot -and $hiddenMenuItems -notcontains "common/open-vscode.ps1") {
-    $vscodeEntries = @(foreach ($svc in $config.services) {
-        if ($svc.name -and (Test-Path -LiteralPath (Join-Path $config.reposRoot $svc.name))) {
-            [ordered]@{ DisplayName = $svc.name; Path = "common\open-vscode.ps1"; Args = @("-Service", $svc.name); Quick = $true; Desc = "Open the $($svc.name) repo in VS Code" }
-        }
-    })
-    if ($vscodeEntries.Count -gt 0) { $groups += [ordered]@{ Name = "VS CODE"; Entries = $vscodeEntries } }
+# Hotkey window only: per configured service (whose repo folder exists), one
+# "VS CODE" and one "VISUAL STUDIO" entry, so typing "order code" /
+# "vs code order" or "order vs" / "order visual studio" opens that repo
+# straight away. Args are passed to the script; Quick = run it in the small
+# window and go straight back to the search box, instead of the usual
+# full-size run + "press any key". Not in the plain menu — it would add rows
+# per service.
+if ($spotlight -and $config -and $config.services -and $config.reposRoot) {
+    $openers = @(
+        @{ Group = "VS CODE"; Path = "common\open-vscode.ps1"; Desc = "Open the {0} repo in VS Code" }
+        @{ Group = "VISUAL STUDIO"; Path = "common\open-vs.ps1"; Desc = "Open the {0} solution in Visual Studio" }
+    )
+    $services = @($config.services | Where-Object { $_.name -and (Test-Path -LiteralPath (Join-Path $config.reposRoot $_.name)) } | ForEach-Object name)
+    foreach ($o in $openers) {
+        if ($hiddenMenuItems -contains $o.Path.Replace('\', '/').ToLowerInvariant()) { continue }
+        $entries = @(foreach ($name in $services) {
+            [ordered]@{ DisplayName = $name; Path = $o.Path; Args = @("-Service", $name); Quick = $true; Desc = ($o.Desc -f $name) }
+        })
+        if ($entries.Count -gt 0) { $groups += [ordered]@{ Name = $o.Group; Entries = $entries } }
+    }
 }
 
 if ($targetArgs.Count -gt 0) {
@@ -243,9 +252,10 @@ while ($true) {
 
     & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath @entryArgs
 
-    # Done and it worked: close the window like Spotlight does. (On failure,
-    # fall through so the error stays readable.)
-    if ($spotlight -and $selected.Quick -and $LASTEXITCODE -eq 0) { break }
+    # Done and it worked: straight back to an empty search box — the window
+    # stays open for the next one. (On failure, fall through so the error
+    # stays readable.)
+    if ($spotlight -and $selected.Quick -and $LASTEXITCODE -eq 0) { continue }
 
     Write-Host "`nPress any key to return to the menu..." -ForegroundColor Gray
     [Console]::CursorVisible = $false

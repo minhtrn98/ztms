@@ -220,12 +220,19 @@ that script, and the menu always regains control afterward. Escape exits
 filesystem. Give it a `Desc` (a short English sentence with the words
 people would search for): search matches on it, and the smoke test fails
 on an entry without one. Entries may also carry `Args` (passed to the
-script) and `Quick` (hotkey window: run in the small window and close it on
-success, Spotlight-style, instead of growing it + "press any key"). With
-`--spotlight`, ztms.ps1 appends a generated "VS CODE" group — one Quick
-entry per configured service whose repo folder exists, running
-`common/open-vscode.ps1 -Service <name>` — so "order code" opens that repo
-directly; it's not in the plain menu (a row per service). This also means environment variables set by one menu pick
+script) and `Quick` (hotkey window: run in the small window and, on
+success, go straight back to an empty search box — the window stays open —
+instead of growing it + "press any key"). With
+`--spotlight`, ztms.ps1 appends generated "VS CODE" and "VISUAL STUDIO"
+groups — one Quick entry per configured service whose repo folder exists,
+running `common/open-vscode.ps1` / `common/open-vs.ps1 -Service <name>` —
+so "order code" / "order vs" open that repo directly; they're not in the
+plain menu (rows per service). `open-vs.ps1` prefers the repo's
+`<Name>.sln.bat` (run from the repo folder: it `call ..\config.bat`s the dev
+env vars before starting the .sln) over the bare `.sln`; it picks files by
+extension, not `-Filter *.sln` (the 8.3 wildcard quirk also matches
+`.sln.bat`/`.slnx`). MenuSearch reads a lone "vs" as "visual studio" — "vs
+code" (or "vs c…" mid-typing) stays VS Code. This also means environment variables set by one menu pick
 (e.g. `901_set-env.ps1`) do **not** propagate to a script picked afterward
 in the same `ztms` session; persisting at the user level
 (`[System.Environment]::SetEnvironmentVariable($k, $v, "User")`) is the

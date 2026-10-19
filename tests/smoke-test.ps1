@@ -133,6 +133,9 @@ Test-Step "common/pull-all.ps1 runs to completion against an empty reposRoot" {
 Test-Step "common/open-vscode.ps1 exits cleanly with no services configured" {
     Invoke-Guarded "common\open-vscode.ps1" "No services configured"
 }
+Test-Step "common/open-vs.ps1 exits cleanly with no services configured" {
+    Invoke-Guarded "common\open-vs.ps1" "No services configured"
+}
 Test-Step "android/start.ps1 exits cleanly with no android.emulatorPath configured" {
     Invoke-Guarded "android\start.ps1" "No android.emulatorPath configured"
 }
@@ -230,9 +233,16 @@ Test-Step "MenuSearch.psm1 finds entries by meaning (synonyms, Vietnamese, no ac
     $vsGroups = @($menuGroups) + [ordered]@{ Name = "VS CODE"; Entries = @(
         foreach ($svc in "TMS.OrderService", "tms.fleetservice", "TMS.RouteService") { [ordered]@{ DisplayName = $svc; Path = "common\open-vscode.ps1"; Args = @("-Service", $svc); Quick = $true; Desc = "Open the $svc repo in VS Code" } }
     ) }
-    foreach ($q in "order code", "vs code order", "order vs code", "vscode order", "mở order bằng vs code") {
+    $vsGroups += [ordered]@{ Name = "VISUAL STUDIO"; Entries = @(
+        foreach ($svc in "TMS.OrderService", "tms.fleetservice", "TMS.RouteService") { [ordered]@{ DisplayName = $svc; Path = "common\open-vs.ps1"; Args = @("-Service", $svc); Quick = $true; Desc = "Open the $svc solution in Visual Studio" } }
+    ) }
+    $expectGroup = [ordered]@{
+        "order code" = "VS CODE"; "vs code order" = "VS CODE"; "order vs code" = "VS CODE"; "vscode order" = "VS CODE"; "mở order bằng vs code" = "VS CODE"
+        "order vs" = "VISUAL STUDIO"; "vs order" = "VISUAL STUDIO"; "order visual studio" = "VISUAL STUDIO"; "order sln" = "VISUAL STUDIO"
+    }
+    foreach ($q in $expectGroup.Keys) {
         $top = @(Find-MenuEntries -Groups $vsGroups -Query $q)[0]
-        if (-not $top -or $top.Entry.DisplayName -ne "TMS.OrderService" -or $top.Partial) { throw "'$q' -> $(if ($top) { "$($top.Group) $($top.Entry.DisplayName)" } else { 'nothing' }), expected VS CODE TMS.OrderService" }
+        if (-not $top -or $top.Entry.DisplayName -ne "TMS.OrderService" -or $top.Group -ne $expectGroup[$q] -or $top.Partial) { throw "'$q' -> $(if ($top) { "$($top.Group) $($top.Entry.DisplayName)" } else { 'nothing' }), expected $($expectGroup[$q]) TMS.OrderService" }
     }
     if (@(Find-MenuEntries -Groups $menuGroups -Query "zzzq").Count -ne 0) { throw "'zzzq' should match nothing" }
     if (@(Find-MenuEntries -Groups $menuGroups -Query "").Count -ne @($menuGroups | ForEach-Object { $_.Entries }).Count) { throw "Empty query should return every entry" }
