@@ -1,9 +1,7 @@
 # ======================================
-# Open one or more configured services' solutions in Visual Studio.
-# Prefers the repo's <Name>.sln.bat when there is one — it sets up the dev
-# env vars (call ..\config.bat) before starting the .sln, so Visual Studio and
-# the services it runs inherit them — otherwise opens the .sln/.slnx directly
-# (with whichever Visual Studio the file association picks).
+# Open one or more configured services' solutions in Visual Studio: the
+# repo's .sln/.slnx, opened directly (with whichever Visual Studio the file
+# association picks) — not through the repo's <Name>.sln.bat.
 # -Service <name>[,<name>]: open those directly, no picker (what the hotkey
 # window's "VISUAL STUDIO" entries run — e.g. type "order vs").
 # Reads service list/reposRoot from tms.config.json — run 900_init-config.ps1 first.
@@ -42,11 +40,9 @@ foreach ($name in $selectedNames) {
         continue
     }
 
-    # By extension, not -Filter: "*.sln" would also match .sln.bat/.slnx (8.3 wildcard quirk)
-    $files = @(Get-ChildItem -LiteralPath $servicePath -File)
-    $bat = $files | Where-Object { $_.Name -like "*.sln.bat" } | Select-Object -First 1
-    $sln = $files | Where-Object { $_.Extension -in ".sln", ".slnx" } | Select-Object -First 1
-    if (-not $bat -and -not $sln) {
+    # By extension, not -Filter: "*.sln" would also match .sln.bat (8.3 wildcard quirk)
+    $sln = Get-ChildItem -LiteralPath $servicePath -File | Where-Object { $_.Extension -in ".sln", ".slnx" } | Select-Object -First 1
+    if (-not $sln) {
         Write-Host "⚠️ No .sln in $servicePath, skipping" -ForegroundColor DarkYellow
         $failed = $true
         continue
@@ -54,14 +50,8 @@ foreach ($name in $selectedNames) {
 
     Write-Host "-> " -ForegroundColor Green -NoNewline
     Write-Host "Opening in Visual Studio: " -ForegroundColor White -NoNewline
-    if ($bat) {
-        Write-Host "$($bat.FullName)" -ForegroundColor Cyan
-        # The .bat uses paths relative to the repo (..\config.bat), so run it from there
-        Start-Process cmd.exe -ArgumentList "/c `"`"$($bat.FullName)`"`"" -WorkingDirectory $servicePath -WindowStyle Hidden
-    } else {
-        Write-Host "$($sln.FullName)" -ForegroundColor Cyan
-        Start-Process -FilePath $sln.FullName
-    }
+    Write-Host "$($sln.FullName)" -ForegroundColor Cyan
+    Start-Process -FilePath $sln.FullName
 }
 
 Write-Host "`n🎉 DONE" -ForegroundColor Magenta

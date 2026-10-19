@@ -227,11 +227,10 @@ instead of growing it + "press any key"). With
 groups — one Quick entry per configured service whose repo folder exists,
 running `common/open-vscode.ps1` / `common/open-vs.ps1 -Service <name>` —
 so "order code" / "order vs" open that repo directly; they're not in the
-plain menu (rows per service). `open-vs.ps1` prefers the repo's
-`<Name>.sln.bat` (run from the repo folder: it `call ..\config.bat`s the dev
-env vars before starting the .sln) over the bare `.sln`; it picks files by
-extension, not `-Filter *.sln` (the 8.3 wildcard quirk also matches
-`.sln.bat`/`.slnx`). MenuSearch reads a lone "vs" as "visual studio" — "vs
+plain menu (rows per service). `open-vs.ps1` opens the repo's `.sln`/`.slnx`
+directly via its file association — deliberately not the repos'
+`<Name>.sln.bat` wrappers; it picks the file by extension, not `-Filter
+*.sln` (the 8.3 wildcard quirk also matches `.sln.bat`). MenuSearch reads a lone "vs" as "visual studio" — "vs
 code" (or "vs c…" mid-typing) stays VS Code. This also means environment variables set by one menu pick
 (e.g. `901_set-env.ps1`) do **not** propagate to a script picked afterward
 in the same `ztms` session; persisting at the user level
