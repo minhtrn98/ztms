@@ -149,7 +149,13 @@ $config = Get-TmsConfig
   and renaming so a half-written build is never picked, guarded by a named
   mutex so the every-minute scheduled task and a manual run can't collide;
   it toasts via Windows PowerShell 5.1 (pwsh 7 can't load WinRT) and only
-  re-toasts an error after a successful run. `Install-TmsPmsDev` creates the
+  re-toasts an error after a successful run. `Start-TmsPmsLatest` spawns a
+  hidden pwsh running `Invoke-TmsPmsLoginAutofill` (skipped if PMS is
+  already running — the app is single-instance), which waits for the login
+  form and types the password with SendKeys. PMS exposes no control names to
+  UI Automation and UIA `SetFocus` is refused on its Janus password box, so
+  the box is found by `EM_GETPASSWORDCHAR` and reached with Tab from the
+  username box. `Install-TmsPmsDev` creates the
   desktop shortcut via a temp `.lnk` in `$env:PUBLIC` because
   `WScript.Shell` can't save to a non-ASCII path (e.g. a Vietnamese username
   in the Desktop path).

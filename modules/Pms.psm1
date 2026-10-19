@@ -9,6 +9,7 @@
 $script:PmsTaskName = "PMS Dev Auto Update"
 $script:PmsShortcutName = "PMS Dev.lnk"
 $script:PmsKeepVersions = 2
+$script:PmsModulePath = $PSCommandPath
 
 function Get-TmsPmsDevConfig {
     <#
@@ -49,7 +50,9 @@ function Start-TmsPmsLatest {
     <#
     Launches the newest installed build (StartPMS.exe if present, else
     PMS.exe), then copies the login password from the user-level env var
-    named by pms.dev.passwordEnvVar to the clipboard, if set.
+    named by pms.dev.passwordEnvVar to the clipboard, if set, and starts a
+    hidden background pwsh (Invoke-TmsPmsLoginAutofill) that types it into
+    the login form once that appears.
     #>
     param([Parameter(Mandatory)]$Pms)
 
@@ -61,6 +64,10 @@ function Start-TmsPmsLatest {
 
     $exe = Join-Path $latest.FullName "StartPMS.exe"
     if (-not (Test-Path -LiteralPath $exe)) { $exe = Join-Path $latest.FullName "PMS.exe" }
+
+    # PMS is single-instance (mutex PMS.Singleton.<Environment>): if one is
+    # already running, the new one exits silently — no login form to fill.
+    $alreadyRunning = Get-Process PMS -ErrorAction SilentlyContinue
 
     Write-Host "-> " -ForegroundColor Green -NoNewline
     Write-Host "Starting PMS DEV $($latest.Name): " -ForegroundColor White -NoNewline
@@ -74,7 +81,87 @@ function Start-TmsPmsLatest {
         if ($pw) {
             Set-Clipboard -Value $pw
             Write-Host "Password copied to clipboard ($($Pms.PasswordEnvVar))." -ForegroundColor Gray
+            if ($alreadyRunning) {
+                Write-Host "PMS is already running (pid $($alreadyRunning.Id -join ', ')) — the new instance will exit; close it first." -ForegroundColor Yellow
+            } else {
+                # Only the env var name goes on the command line; the child reads the value itself.
+                $cmd = "Import-Module '$($script:PmsModulePath -replace "'", "''")' -Force; Invoke-TmsPmsLoginAutofill -PasswordEnvVar '$($Pms.PasswordEnvVar -replace "'", "''")'"
+                $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+                Start-Process -FilePath (Get-Command pwsh).Source -WindowStyle Hidden -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $enc"
+            }
         }
+    }
+}
+
+function Invoke-TmsPmsLoginAutofill {
+    <#
+    Waits up to $TimeoutSeconds for the PMS login form and types the password
+    from the user-level env var $PasswordEnvVar into it. Runs in the hidden
+    pwsh that Start-TmsPmsLatest spawns. PMS doesn't expose control names to
+    UI Automation (AutomationId is just the HWND, IsPassword is False), so the
+    password box is found by EM_GETPASSWORDCHAR: the EDIT window with a
+    password char set — the inner EDIT of a Janus EditBox, which is a
+    ContainerControl, so the password is typed with SendKeys rather than set
+    underneath it. Types only when that box has focus and is still empty.
+    Assumes the password box comes right after the username box in tab
+    order (frmLogin: txtUserName 0, txtPassword 1).
+    Errors go to %TEMP%\ztms-pms-autofill.log.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$PasswordEnvVar,
+        [int]$TimeoutSeconds = 180
+    )
+
+    try {
+        $pw = [Environment]::GetEnvironmentVariable($PasswordEnvVar, "User")
+        if (-not $pw) { return }
+
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+        if (-not ("Tms.PmsWin32" -as [type])) {
+            Add-Type -Namespace Tms -Name PmsWin32 -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr SendMessage(System.IntPtr hWnd, int msg, System.IntPtr wParam, System.IntPtr lParam);'
+        }
+        $EM_GETPASSWORDCHAR = 0xD2
+        $WM_GETTEXTLENGTH = 0x0E
+        $uia = [System.Windows.Automation.AutomationElement]
+        $scope = [System.Windows.Automation.TreeScope]
+        $send = { param($el, $msg) [int][Tms.PmsWin32]::SendMessage([IntPtr]$el.Current.NativeWindowHandle, $msg, [IntPtr]::Zero, [IntPtr]::Zero) }
+
+        $tabs = 0
+        $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+        while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 500
+            $box = $null
+            foreach ($id in @(Get-Process PMS -ErrorAction SilentlyContinue).Id) {
+                $byPid = [System.Windows.Automation.PropertyCondition]::new($uia::ProcessIdProperty, $id)
+                foreach ($win in $uia::RootElement.FindAll($scope::Children, $byPid)) {
+                    $box = $win.FindAll($scope::Descendants, [System.Windows.Automation.Condition]::TrueCondition) |
+                        Where-Object { $_.Current.ClassName -like "*.EDIT.*" -and (& $send $_ $EM_GETPASSWORDCHAR) -ne 0 } |
+                        Select-Object -First 1
+                    if ($box) { break }
+                }
+                if ($box) { break }
+            }
+            if (-not $box) { continue }
+            if ((& $send $box $WM_GETTEXTLENGTH) -gt 0) { return }   # already typed by hand
+
+            # UIA SetFocus is refused on that inner EDIT ("cannot receive focus"),
+            # but Tab from the username box (TabIndex 0) lands on it (TabIndex 1).
+            # Press Tab only while focus is inside PMS, and only a few times.
+            $focused = $uia::FocusedElement.Current
+            if ($focused.NativeWindowHandle -ne $box.Current.NativeWindowHandle) {
+                if ($focused.ProcessId -ne $box.Current.ProcessId -or $tabs -ge 6) { continue }
+                [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+                $tabs++
+                Start-Sleep -Milliseconds 200
+                # Never type the password into anything but that box
+                if ($uia::FocusedElement.Current.NativeWindowHandle -ne $box.Current.NativeWindowHandle) { continue }
+            }
+            # SendKeys treats + ^ % ~ ( ) { } [ ] as commands — wrap them in {}
+            [System.Windows.Forms.SendKeys]::SendWait(($pw -replace '[+^%~(){}\[\]]', '{$0}'))
+            return
+        }
+    } catch {
+        Add-Content -LiteralPath (Join-Path $env:TEMP "ztms-pms-autofill.log") -Value "[$(Get-Date -Format s)] $($_.Exception.Message)"
     }
 }
 
@@ -306,4 +393,4 @@ function Get-TmsPmsStatus {
     return $rows
 }
 
-Export-ModuleMember -Function Get-TmsPmsDevConfig, Get-TmsPmsLatestInstalled, Start-TmsPmsLatest, Show-TmsToast, Invoke-TmsPmsUpdate, Install-TmsPmsDev, Get-TmsPmsStatus, Get-TmsPmsShortcutPath
+Export-ModuleMember -Function Get-TmsPmsDevConfig, Get-TmsPmsLatestInstalled, Start-TmsPmsLatest, Invoke-TmsPmsLoginAutofill, Show-TmsToast, Invoke-TmsPmsUpdate, Install-TmsPmsDev, Get-TmsPmsStatus, Get-TmsPmsShortcutPath

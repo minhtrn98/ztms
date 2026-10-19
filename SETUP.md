@@ -103,7 +103,7 @@ ztms
 # chọn PMS > [dev] install
 ```
 
-Lệnh này tải bản PMS mới nhất, tạo shortcut **PMS Dev** ngoài Desktop (luôn mở bản mới nhất, tự copy password vào clipboard) và tạo scheduled task **PMS Dev Auto Update** (check bản mới mỗi phút, báo bằng thông báo Windows).
+Lệnh này tải bản PMS mới nhất, tạo shortcut **PMS Dev** ngoài Desktop (luôn mở bản mới nhất, tự điền password vào form đăng nhập và copy vào clipboard) và tạo scheduled task **PMS Dev Auto Update** (check bản mới mỗi phút, báo bằng thông báo Windows).
 
 > Nếu máy mới chưa từng cài PMS, nên chạy installer chính thức (`PMSSetup.exe`) một lần để có thư mục `Microsoft.WebView2.FixedVersionRuntime.*`. `[dev] install` sẽ cảnh báo nếu thiếu thư mục này.
 
@@ -142,7 +142,7 @@ Danh sách đầy đủ và trạng thái trên máy: chạy **SETUP > doctor**.
 | `TMS_LOCAL_DB_PASSWORD` | Postgres local | mặc định `postgres` |
 | `DEV_DB_PASSWORD` / `STG_DB_PASSWORD` | clone DB dev / stg | script hỏi khi chạy |
 | `DEV_REDIS_PW` / `STG_REDIS_PW` | clone Redis dev / stg | script hỏi khi chạy |
-| `PMS_DEV_PASSWORD` | PMS > [dev] start copy vào clipboard | không copy |
+| `PMS_DEV_PASSWORD` | PMS > [dev] start tự điền vào form đăng nhập + copy vào clipboard | không điền/copy |
 
 **Runtime cho service .NET**: mọi key trong `tms.env.local` (`DefaultKey`, `Identity__Key`, `Redis__*`, `KafkaFlow__*`, `RabbitMq__*`, `OpenTelemetry__*`, ...). Sửa file xong thì chạy lại **SETUP > set-env** và chọn persist.
 

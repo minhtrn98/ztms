@@ -132,7 +132,7 @@ release, which breaks fixed shortcuts. With `pms.dev` configured:
 | Menu | What it does |
 |---|---|
 | PMS > [dev] install | Downloads the latest build if none, creates a "PMS Dev" desktop shortcut that always opens the newest build, and registers a "PMS Dev Auto Update" scheduled task (every minute, headless). Re-run safely. |
-| PMS > [dev] start | Opens the newest build and copies the login password (`pms.dev.passwordEnvVar` user env var) to the clipboard |
+| PMS > [dev] start | Opens the newest build, types the login password (`pms.dev.passwordEnvVar` user env var) into the login form and copies it to the clipboard |
 | PMS > [dev] update | Downloads + unzips the latest build now; toasts on install/error; keeps the 2 newest version folders |
 
 ## Searching

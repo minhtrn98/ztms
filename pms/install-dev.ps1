@@ -15,7 +15,7 @@ $pms = Get-TmsPmsDevConfig -Config $config
 Install-TmsPmsDev -Pms $pms -ScriptsRoot (Split-Path $PSScriptRoot -Parent)
 
 if ($pms.PasswordEnvVar -and -not [Environment]::GetEnvironmentVariable($pms.PasswordEnvVar, "User")) {
-    Write-Host "`nTip: set the PMS login password once so [dev] start copies it to the clipboard:" -ForegroundColor Gray
+    Write-Host "`nTip: set the PMS login password once so [dev] start fills it into the login form:" -ForegroundColor Gray
     Write-Host "  [Environment]::SetEnvironmentVariable('$($pms.PasswordEnvVar)', '<password>', 'User')" -ForegroundColor Gray
 }
 
