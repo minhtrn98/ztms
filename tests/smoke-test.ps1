@@ -201,6 +201,13 @@ Test-Step "Hotkey.psm1 parses hotkey strings and rejects bad ones" {
         if (-not $rejected) { throw "'$bad' was accepted" }
     }
 }
+Test-Step "Hotkey.psm1 loads its native helpers from the compiled-DLL cache" {
+    # The step above imported it, so the DLL is cached by now — a fresh
+    # process should load it from there instead of compiling again (~0.5s)
+    $hotkeyModule = Join-Path $testRoot "modules\Hotkey.psm1"
+    $from = & pwsh -NoProfile -Command "Import-Module '$hotkeyModule'; if ([Ztms.HotkeyNative].Assembly.Location) { 'cached' } else { 'in-memory' }" 2>&1 | Out-String
+    if ($from.Trim() -ne "cached") { throw "Expected the type to come from the cached DLL. Got:`n$from" }
+}
 Test-Step "Every ztms menu entry has a Desc (it's what search matches on)" {
     $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $testRoot "ztms.ps1"), [ref]$null, [ref]$null)
     $assign = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$groups' }, $true)

@@ -65,7 +65,9 @@ $config = Get-TmsConfig
   (single-select menu flattened across groups with non-selectable group
   headers — what `ztms.ps1` itself uses; the plain menu has **no search**
   (deliberately — Up/Down, 1–9 group jump, Enter, Esc). `-SearchOnly` (the
-  hotkey window only) replaces the list with a search box: the terminal's
+  hotkey window only) replaces the list with a search box: a `Run: ` label
+  (`-SearchLabel`) with a gray hint while nothing's typed (`-SearchHint` —
+  both passed in by ztms.ps1, which owns that text), the terminal's
   real blinking caret after the query, best-first results via
   `Find-MenuEntries` (each entry's `Desc` feeds the search only — it's
   deliberately not shown), Backspace/Ctrl+Backspace(=Ctrl+W), Escape clears
@@ -171,8 +173,13 @@ $config = Get-TmsConfig
   window `hotkey.searchHeightPercent` tall; ztms.ps1 itself grows it to
   `heightPercent` before running a picked script and shrinks it back after
   (`Set-TmsSpotlightWindowSize` resizes the foreground window, i.e. itself,
-  on its own monitor; Hotkey.psm1 is imported only at that point so its
-  `Add-Type` compile doesn't delay the search box). It then waits until
+  on its own monitor; Hotkey.psm1 is imported only at that point so it
+  doesn't delay the search box). Its C# (`Ztms.HotkeyNative`) takes ~0.5s
+  to `Add-Type`, so it's compiled once into
+  `%LOCALAPPDATA%\ztms\Ztms.HotkeyNative.<hash>.dll` (hash of source + pwsh
+  version; temp name + rename so concurrent compiles are safe) and loaded
+  with `Assembly.LoadFrom` (~5ms; `Add-Type -Path` costs ~60ms), falling
+  back to an in-memory compile if that fails. It then waits until
   `[Console]::WindowHeight` actually changes — the resize reaches the
   console asynchronously, and redrawing before it lands lays the menu out
   for the old height, so after a shrink the search line scrolls off the top. The window is tracked by **handle** (the terminal window that
@@ -207,8 +214,23 @@ $config = Get-TmsConfig
   `Activate` falls back to `AttachThreadInput` because a plain
   `SetForegroundWindow` from the background listener is intermittently
   refused. Install waits until the hotkey is actually taken (the listener
-  needs a moment for `Add-Type`) before reporting success. Errors from the
+  needs a moment to start) before reporting success. Errors from the
   headless listener go to `%TEMP%\ztms-hotkey.log`.
+  **Startup time** of a new hotkey window is ~0.15s for wt to show it, ~0.25s
+  of pwsh startup, then ztms.ps1. So `--spotlight` draws its search line
+  first thing, before any `Import-Module` (with `$Host.UI.Write`, which
+  needs no module; the menu then redraws the same line in place, so the
+  first round skips `Clear-Host`). After that it imports
+  `Microsoft.PowerShell.Management`/`Utility` explicitly, because
+  autoloading them on first use scans every module folder (~0.1s more), and
+  skips `UpdateCheck.psm1`. Every script file PowerShell loads costs a fixed
+  ~27ms, even an empty one or a dot-sourced `.ps1`, so the rest is mostly
+  the per-file cost of the modules. Don't try to keep the window alive
+  (hidden) between uses to skip startup: with WT's
+  `windowingBehavior: useExisting`, new tabs from anywhere ("Open in
+  Terminal", a bare `wt`) go to the most recently activated window, hidden
+  or not, and WT shows it again. That was tested on WT 1.24, and WT's
+  window-picking code has no visibility or quake-window check.
 
 **Menu / process model.** `ztms.ps1` is the interactive entry point (also
 reachable as the global `ztms` command once installed). It's a `$groups`

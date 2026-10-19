@@ -22,7 +22,7 @@ $script:MenuWindow = [IntPtr]::Zero
 $script:HotkeyLogPath = Join-Path $env:TEMP "ztms-hotkey.log"
 
 if (-not ('Ztms.HotkeyNative' -as [type])) {
-    Add-Type -TypeDefinition @"
+    $nativeSource = @"
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -215,6 +215,34 @@ namespace Ztms {
     }
 }
 "@
+    # Compiling that takes ~0.5s — paid by the listener at logon, and by the
+    # hotkey window right after you pick a script (it imports this module to
+    # grow itself). So it's compiled once into a DLL named after a hash of the
+    # source + pwsh version (an edit or a pwsh upgrade gets a fresh one) and
+    # loaded from there afterwards, in ~5ms. LoadFrom, not Add-Type -Path:
+    # that one takes ~60ms.
+    try {
+        & {
+            $ErrorActionPreference = 'Stop'  # any failure -> the in-memory compile below
+            $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes("$($PSVersionTable.PSVersion)`n$nativeSource"))).Replace('-', '').Substring(0, 16)
+            $dir = Join-Path $env:LOCALAPPDATA "ztms"
+            $dll = Join-Path $dir "Ztms.HotkeyNative.$hash.dll"
+            if (-not (Test-Path -LiteralPath $dll)) {
+                $null = New-Item -ItemType Directory -Force -Path $dir
+                # Older builds (deleting one that's loaded somewhere is fine — that process keeps its mapping)
+                Get-ChildItem -LiteralPath $dir -Filter "Ztms.HotkeyNative.*.dll" | Remove-Item -ErrorAction SilentlyContinue
+                # Compiled under a temp name, then renamed into place, so a half-written
+                # DLL is never loaded — even with two processes compiling at once
+                $tmp = Join-Path $dir "Ztms.HotkeyNative.$hash.$PID.tmp.dll"
+                Add-Type -TypeDefinition $nativeSource -OutputAssembly $tmp
+                try { [IO.File]::Move($tmp, $dll) } catch { Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue }  # the other one won
+            }
+            $null = [Reflection.Assembly]::LoadFrom($dll)
+        }
+    } catch {
+        # No cache (folder not writable, DLL loading blocked by policy, ...): compile in memory
+        if (-not ('Ztms.HotkeyNative' -as [type])) { Add-Type -TypeDefinition $nativeSource }
+    }
 }
 
 function ConvertTo-TmsHotkey {
@@ -528,7 +556,7 @@ function Install-TmsHotkey {
     Register-ScheduledTask -TaskName $script:HotkeyTaskName -Description "Global $($Hotkey.Display) hotkey that opens the ztms menu" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
     Start-ScheduledTask -TaskName $script:HotkeyTaskName
 
-    # Ready once the listener owns the hotkey (pwsh start + Add-Type compile take a moment)
+    # Ready once the listener owns the hotkey (pwsh start — plus, the first time, the native-helper compile — takes a moment)
     for ($i = 0; $i -lt 30 -and (Test-TmsHotkeyAvailable -Hotkey $Hotkey); $i++) { Start-Sleep -Milliseconds 500 }
     if (-not (Get-TmsHotkeyListenerProcess) -or (Test-TmsHotkeyAvailable -Hotkey $Hotkey)) {
         Write-Host "Scheduled task '$($script:HotkeyTaskName)' registered, but the listener didn't take the hotkey. Check the task in Task Scheduler and $($script:HotkeyLogPath)." -ForegroundColor Red

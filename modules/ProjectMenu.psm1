@@ -167,8 +167,9 @@ function Show-GroupedMenu {
     Group.Entries), or $null on Escape.
 
     -SearchOnly (ztms.ps1 --spotlight, the hotkey window) swaps all that for
-    a search box: no grouped list, just the search line (with the terminal's
-    own blinking caret) and as many results as fit the (short) window.
+    a search box: no grouped list, just the search line ($SearchLabel, then
+    the query with the terminal's own blinking caret — or, while it's empty,
+    $SearchHint in gray) and as many results as fit the (short) window.
     Typing matches names, group names and each entry's Desc — search-only,
     never shown (Find-MenuEntries in MenuSearch.psm1 — synonyms, English +
     Vietnamese, accents optional) — best-first. Backspace / Ctrl+Backspace
@@ -178,37 +179,44 @@ function Show-GroupedMenu {
     param(
         [Parameter(Mandatory)]$Groups,
         [string]$Prompt = "Select an option",
-        [switch]$SearchOnly
+        [switch]$SearchOnly,
+        [string]$SearchLabel = "Run: ",
+        [string]$SearchHint = ""
     )
 
+    # The plain menu's flattened rows. -SearchOnly never shows them, and
+    # skipping this there saves ~30ms of the hotkey window's startup.
     $rows = @()
-    $groupHeaderIndex = @{}
-    $groupNumber = 0
-    foreach ($group in $Groups) {
-        $groupNumber++
-        $headerLabel = if ($groupNumber -le 9) { "[$groupNumber] $($group.Name)" } else { $group.Name }
-        $rows += [ordered]@{ IsHeader = $true; Label = $headerLabel; Entry = $null }
-        $groupHeaderIndex[$groupNumber] = $rows.Count - 1
-        foreach ($entry in $group.Entries) {
-            $rows += [ordered]@{ IsHeader = $false; Label = $entry.DisplayName; Entry = $entry }
+    $selectableIndices = @()
+    $groupJumpTarget = @{}
+    if (-not $SearchOnly) {
+        $groupHeaderIndex = @{}
+        $groupNumber = 0
+        foreach ($group in $Groups) {
+            $groupNumber++
+            $headerLabel = if ($groupNumber -le 9) { "[$groupNumber] $($group.Name)" } else { $group.Name }
+            $rows += [ordered]@{ IsHeader = $true; Label = $headerLabel; Entry = $null }
+            $groupHeaderIndex[$groupNumber] = $rows.Count - 1
+            foreach ($entry in $group.Entries) {
+                $rows += [ordered]@{ IsHeader = $false; Label = $entry.DisplayName; Entry = $entry }
+            }
+        }
+
+        for ($i = 0; $i -lt $rows.Count; $i++) { if (-not $rows[$i].IsHeader) { $selectableIndices += $i } }
+
+        # Map each group number to the first selectable row in that group, so a
+        # digit keypress can jump straight there.
+        foreach ($num in $groupHeaderIndex.Keys) {
+            $headerIdx = $groupHeaderIndex[$num]
+            $target = $selectableIndices | Where-Object { $_ -gt $headerIdx } | Select-Object -First 1
+            if ($null -ne $target) { $groupJumpTarget[$num] = $target }
         }
     }
 
-    $selectableIndices = @()
-    for ($i = 0; $i -lt $rows.Count; $i++) { if (-not $rows[$i].IsHeader) { $selectableIndices += $i } }
-
-    if ($selectableIndices.Count -eq 0) {
+    $entryCount = if ($SearchOnly) { @($Groups | ForEach-Object { $_.Entries }).Count } else { $selectableIndices.Count }
+    if ($entryCount -eq 0) {
         Write-Host "No entries to show." -ForegroundColor $MenuTheme.Error
         return $null
-    }
-
-    # Map each group number to the first selectable row in that group, so a
-    # digit keypress can jump straight there.
-    $groupJumpTarget = @{}
-    foreach ($num in $groupHeaderIndex.Keys) {
-        $headerIdx = $groupHeaderIndex[$num]
-        $target = $selectableIndices | Where-Object { $_ -gt $headerIdx } | Select-Object -First 1
-        if ($null -ne $target) { $groupJumpTarget[$num] = $target }
     }
 
     $groupWidth = (($Groups | ForEach-Object { $_.Name.Length }) | Measure-Object -Maximum).Maximum + 2
@@ -243,7 +251,7 @@ function Show-GroupedMenu {
         [Console]::CursorVisible = $false
         Write-MenuBody -Top $Top
         if ($SearchOnly) {
-            [Console]::SetCursorPosition([Math]::Min($width - 1, "Search: ".Length + $query.Length), $Top)
+            [Console]::SetCursorPosition([Math]::Min($width - 1, $SearchLabel.Length + $query.Length), $Top)
             [Console]::CursorVisible = $true
         }
     }
@@ -254,7 +262,7 @@ function Show-GroupedMenu {
 
         if ($query) {
             $note = if ($results.Count -gt 0 -and $results[0].Partial) { "   (no exact match - closest results)" } else { "" }
-            Write-MenuRow "Search: $query" $MenuTheme.Search $note $MenuTheme.Desc
+            Write-MenuRow "$SearchLabel$query" $MenuTheme.Search $note $MenuTheme.Desc
             $drawn = 0
             if ($results.Count -eq 0) { Write-MenuRow "    No matches." $MenuTheme.Error; $drawn++ }
             for ($i = 0; $i -lt $results.Count; $i++) {
@@ -272,7 +280,7 @@ function Show-GroupedMenu {
         }
 
         if ($SearchOnly) {
-            Write-MenuRow "Search: " $MenuTheme.Search
+            Write-MenuRow $SearchLabel $MenuTheme.Search $SearchHint $MenuTheme.Desc
             for ($i = 0; $i -lt $listRows; $i++) { Write-MenuRow "" $MenuTheme.Normal }
             return
         }

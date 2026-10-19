@@ -19,14 +19,41 @@
 # runs and shrinks back afterwards.
 # ======================================
 
-Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
-Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
-Import-Module (Join-Path $PSScriptRoot "modules\UpdateCheck.psm1") -Force
-
 # --spotlight: opened by the global hotkey (see Hotkey.psm1). Search box only,
 # no grouped list, in a short window that grows while a script runs.
 $spotlight = @($args) -contains '--spotlight'
 $targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
+
+# The hotkey window's search line: what you type goes after the label, and
+# the hint shows (gray) while nothing's typed yet.
+$searchLabel = "Run: "
+$searchHint = 'type what you want to do, e.g. "pull", "clone db dev", "tắt service"'
+
+if ($spotlight -and $targetArgs.Count -eq 0) {
+    # Put the search line up right away, before importing anything: loading
+    # the modules is ~0.3s of a new window's startup, and drawn first the box
+    # is there as soon as pwsh is. Show-GroupedMenu then redraws the same line
+    # in the same spot (these are MenuTheme's Search/Desc colors, not imported
+    # yet), and keys typed meanwhile just wait in the console's input buffer.
+    # $Host.UI.Write (what Write-Host uses) rather than [Console]::Write,
+    # which encodes through the console code page — accents could turn into "?".
+    try {
+        $bg = $Host.UI.RawUI.BackgroundColor
+        $Host.UI.Write([ConsoleColor]::White, $bg, $searchLabel)
+        $room = [Console]::WindowWidth - 1 - $searchLabel.Length
+        $Host.UI.Write([ConsoleColor]::DarkGray, $bg, $searchHint.Substring(0, [Math]::Max(0, [Math]::Min($searchHint.Length, $room))))
+        [Console]::SetCursorPosition($searchLabel.Length, 0)
+    } catch {}
+}
+
+# The built-in modules explicitly, not left to autoloading: finding which
+# module a first-used cmdlet (Join-Path, Write-Host, ...) lives in scans every
+# module folder, ~0.1s more than importing them by name.
+Import-Module Microsoft.PowerShell.Management, Microsoft.PowerShell.Utility
+Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
+# Only for the (currently commented-out) update check below — not worth its import time in the hotkey window
+if (-not $spotlight) { Import-Module (Join-Path $PSScriptRoot "modules\UpdateCheck.psm1") -Force }
 
 # Config may not exist yet on a first run (SETUP > init-config creates it), so
 # the hide list is best-effort — no config just means nothing is hidden.
@@ -218,8 +245,13 @@ if ($targetArgs.Count -gt 0) {
 }
 
 $spotlightHotkey = $null
+$firstRound = $true
 while ($true) {
-    Clear-Host
+    # Not on the hotkey window's first round: the screen is still empty
+    # except for the search line drawn at the top, and clearing it would
+    # make it blink
+    if (-not ($spotlight -and $firstRound)) { Clear-Host }
+    $firstRound = $false
     if (-not $spotlight) {
         Write-Host "=== TMS scripts ===" -ForegroundColor Magenta
         Write-Host "$PSScriptRoot`n" -ForegroundColor Gray
@@ -230,7 +262,7 @@ while ($true) {
     #     Write-Host "New version available: v$latestVersion (you have v$(Get-TmsLocalVersion -RepoRoot $PSScriptRoot)) - run 'update' from SETUP to upgrade.`n" -ForegroundColor Yellow
     # }
 
-    $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run" -SearchOnly:$spotlight
+    $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run" -SearchOnly:$spotlight -SearchLabel $searchLabel -SearchHint $searchHint
 
     if (-not $selected) {
         Write-Host "`nBye." -ForegroundColor DarkYellow
@@ -241,7 +273,9 @@ while ($true) {
     # gets the window grown for its output
     $expanded = $false
     if ($spotlight -and -not $selected.Quick) {
-        # Imported only now: its Add-Type compile would delay the search box
+        # Imported only now, not at startup: loading it would delay the search
+        # box (much less since its native helpers come from a cached DLL —
+        # see the top of Hotkey.psm1 — but still ~50ms)
         if (-not $spotlightHotkey) {
             Import-Module (Join-Path $PSScriptRoot "modules\Hotkey.psm1") -Force
             try { $spotlightHotkey = Get-TmsHotkey -Config $config } catch {}  # bad hotkey.keys: just don't resize
