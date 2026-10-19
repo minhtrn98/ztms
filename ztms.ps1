@@ -24,8 +24,9 @@
 $spotlight = @($args) -contains '--spotlight'
 $targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
 
-# The hotkey window's search line: what you type goes after the label, and
-# the hint shows (gray) while nothing's typed yet.
+# The hotkey window's search line: the ztms tag, then the label, then what
+# you type — or the hint (gray) while nothing's typed yet.
+$searchPrefix = "ztms › "
 $searchLabel = "Run: "
 $searchHint = 'type what you want to do, e.g. "pull", "clone db dev", "tắt service"'
 
@@ -33,16 +34,19 @@ if ($spotlight -and $targetArgs.Count -eq 0) {
     # Put the search line up right away, before importing anything: loading
     # the modules is ~0.3s of a new window's startup, and drawn first the box
     # is there as soon as pwsh is. Show-GroupedMenu then redraws the same line
-    # in the same spot (these are MenuTheme's Search/Desc colors, not imported
-    # yet), and keys typed meanwhile just wait in the console's input buffer.
-    # $Host.UI.Write (what Write-Host uses) rather than [Console]::Write,
-    # which encodes through the console code page — accents could turn into "?".
+    # in the same spot (these are MenuTheme's Brand/Search/Desc colors, not
+    # imported yet), and keys typed meanwhile just wait in the console's
+    # input buffer. $Host.UI.Write (what Write-Host uses) rather than
+    # [Console]::Write, which encodes through the console code page — accents
+    # could turn into "?".
     try {
         $bg = $Host.UI.RawUI.BackgroundColor
+        $Host.UI.Write([ConsoleColor]::Magenta, $bg, $searchPrefix)
         $Host.UI.Write([ConsoleColor]::White, $bg, $searchLabel)
-        $room = [Console]::WindowWidth - 1 - $searchLabel.Length
+        $caret = $searchPrefix.Length + $searchLabel.Length
+        $room = [Console]::WindowWidth - 1 - $caret
         $Host.UI.Write([ConsoleColor]::DarkGray, $bg, $searchHint.Substring(0, [Math]::Max(0, [Math]::Min($searchHint.Length, $room))))
-        [Console]::SetCursorPosition($searchLabel.Length, 0)
+        [Console]::SetCursorPosition($caret, 0)
     } catch {}
 }
 
@@ -262,7 +266,7 @@ while ($true) {
     #     Write-Host "New version available: v$latestVersion (you have v$(Get-TmsLocalVersion -RepoRoot $PSScriptRoot)) - run 'update' from SETUP to upgrade.`n" -ForegroundColor Yellow
     # }
 
-    $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run" -SearchOnly:$spotlight -SearchLabel $searchLabel -SearchHint $searchHint
+    $selected = Show-GroupedMenu -Groups $groups -Prompt "Choose a script to run" -SearchOnly:$spotlight -SearchPrefix $searchPrefix -SearchLabel $searchLabel -SearchHint $searchHint
 
     if (-not $selected) {
         Write-Host "`nBye." -ForegroundColor DarkYellow

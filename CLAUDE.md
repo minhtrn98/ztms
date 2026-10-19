@@ -65,9 +65,10 @@ $config = Get-TmsConfig
   (single-select menu flattened across groups with non-selectable group
   headers — what `ztms.ps1` itself uses; the plain menu has **no search**
   (deliberately — Up/Down, 1–9 group jump, Enter, Esc). `-SearchOnly` (the
-  hotkey window only) replaces the list with a search box: a `Run: ` label
-  (`-SearchLabel`) with a gray hint while nothing's typed (`-SearchHint` —
-  both passed in by ztms.ps1, which owns that text), the terminal's
+  hotkey window only) replaces the list with a search box: a `ztms › ` tag
+  (`-SearchPrefix`, `MenuTheme.Brand` color), a `Run: ` label
+  (`-SearchLabel`) and a gray hint while nothing's typed (`-SearchHint` —
+  all passed in by ztms.ps1, which owns that text), the terminal's
   real blinking caret after the query, best-first results via
   `Find-MenuEntries` (each entry's `Desc` feeds the search only — it's
   deliberately not shown), Backspace/Ctrl+Backspace(=Ctrl+W), Escape clears

@@ -12,6 +12,7 @@ $MenuTheme = [ordered]@{
     Error          = "Red"      # cancelled / no-entries messages
     Desc           = "DarkGray" # secondary text, e.g. the search box placeholder
     Search         = "White"    # the search box text in Show-GroupedMenu
+    Brand          = "Magenta"  # the "ztms ›" tag in front of the search box
 }
 
 Export-ModuleMember -Variable MenuTheme

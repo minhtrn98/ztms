@@ -167,9 +167,10 @@ function Show-GroupedMenu {
     Group.Entries), or $null on Escape.
 
     -SearchOnly (ztms.ps1 --spotlight, the hotkey window) swaps all that for
-    a search box: no grouped list, just the search line ($SearchLabel, then
-    the query with the terminal's own blinking caret — or, while it's empty,
-    $SearchHint in gray) and as many results as fit the (short) window.
+    a search box: no grouped list, just the search line ($SearchPrefix in
+    the Brand color, $SearchLabel, then the query with the terminal's own
+    blinking caret — or, while it's empty, $SearchHint in gray) and as many
+    results as fit the (short) window.
     Typing matches names, group names and each entry's Desc — search-only,
     never shown (Find-MenuEntries in MenuSearch.psm1 — synonyms, English +
     Vietnamese, accents optional) — best-first. Backspace / Ctrl+Backspace
@@ -180,6 +181,7 @@ function Show-GroupedMenu {
         [Parameter(Mandatory)]$Groups,
         [string]$Prompt = "Select an option",
         [switch]$SearchOnly,
+        [string]$SearchPrefix = "",
         [string]$SearchLabel = "Run: ",
         [string]$SearchHint = ""
     )
@@ -233,10 +235,13 @@ function Show-GroupedMenu {
     $view = @{ Scroll = 0 }
 
     function Write-MenuRow {
-        # One full-width row: $Text, then $Tail in its own color, cut/padded to $width.
-        param([string]$Text, $Color, [string]$Tail = "", $TailColor = $Color)
-        if ($Text.Length -gt $width) { $Text = $Text.Substring(0, $width) }
-        $room = $width - $Text.Length
+        # One full-width row: $Lead, $Text, then $Tail, each in its own color, cut/padded to $width.
+        param([string]$Text, $Color, [string]$Tail = "", $TailColor = $Color, [string]$Lead = "", $LeadColor = $Color)
+        if ($Lead.Length -gt $width) { $Lead = $Lead.Substring(0, $width) }
+        if ($Lead) { Write-Host $Lead -ForegroundColor $LeadColor -NoNewline }
+        $room = $width - $Lead.Length
+        if ($Text.Length -gt $room) { $Text = $Text.Substring(0, $room) }
+        $room -= $Text.Length
         if ($Tail.Length -gt $room) { $Tail = $Tail.Substring(0, $room) }
         Write-Host $Text -ForegroundColor $Color -NoNewline
         Write-Host $Tail.PadRight($room) -ForegroundColor $TailColor
@@ -251,7 +256,7 @@ function Show-GroupedMenu {
         [Console]::CursorVisible = $false
         Write-MenuBody -Top $Top
         if ($SearchOnly) {
-            [Console]::SetCursorPosition([Math]::Min($width - 1, $SearchLabel.Length + $query.Length), $Top)
+            [Console]::SetCursorPosition([Math]::Min($width - 1, $SearchPrefix.Length + $SearchLabel.Length + $query.Length), $Top)
             [Console]::CursorVisible = $true
         }
     }
@@ -262,7 +267,7 @@ function Show-GroupedMenu {
 
         if ($query) {
             $note = if ($results.Count -gt 0 -and $results[0].Partial) { "   (no exact match - closest results)" } else { "" }
-            Write-MenuRow "$SearchLabel$query" $MenuTheme.Search $note $MenuTheme.Desc
+            Write-MenuRow "$SearchLabel$query" $MenuTheme.Search $note $MenuTheme.Desc -Lead $SearchPrefix -LeadColor $MenuTheme.Brand
             $drawn = 0
             if ($results.Count -eq 0) { Write-MenuRow "    No matches." $MenuTheme.Error; $drawn++ }
             for ($i = 0; $i -lt $results.Count; $i++) {
@@ -280,7 +285,7 @@ function Show-GroupedMenu {
         }
 
         if ($SearchOnly) {
-            Write-MenuRow $SearchLabel $MenuTheme.Search $SearchHint $MenuTheme.Desc
+            Write-MenuRow $SearchLabel $MenuTheme.Search $SearchHint $MenuTheme.Desc -Lead $SearchPrefix -LeadColor $MenuTheme.Brand
             for ($i = 0; $i -lt $listRows; $i++) { Write-MenuRow "" $MenuTheme.Normal }
             return
         }
