@@ -222,7 +222,10 @@ people would search for): search matches on it, and the smoke test fails
 on an entry without one. Entries may also carry `Args` (passed to the
 script) and `Quick` (hotkey window: run in the small window and, on
 success, go straight back to an empty search box — the window stays open —
-instead of growing it + "press any key"). With
+instead of growing it + "press any key"). Config `hiddenMenuItems` only
+trims the plain menu — with `--spotlight` it's ignored (search only shows
+what you type for), while the automatic hides of unconfigured features
+(httptoolkit/pms/install-latest) apply to both. With
 `--spotlight`, ztms.ps1 appends generated "VS CODE" and "VISUAL STUDIO"
 groups — one Quick entry per configured service whose repo folder exists,
 running `common/open-vscode.ps1` / `common/open-vs.ps1 -Service <name>` —

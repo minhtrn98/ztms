@@ -68,6 +68,7 @@ $syntheticConfig = [ordered]@{
     processTag        = "tms-smoketest-$(Get-Random)"
     services          = @()
     pullIgnoreFolders = @()
+    hiddenMenuItems   = @("common/checkout-branch.ps1")
     database          = [ordered]@{
         localHost = "localhost"; localUser = "postgres"; localPasswordEnvVar = "TMS_LOCAL_DB_PASSWORD"
         devHost = ""; devUser = "dev"; devPasswordEnvVar = "DEV_DB_PASSWORD"
@@ -259,6 +260,13 @@ foreach ($htkScript in "start", "stop", "restart", "build", "install") {
 Test-Step "ztms.ps1 hides HTTPTOOLKIT and PMS entries when not configured" {
     $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nope/nope 2>&1 | Out-String
     if ($output -match "(?m)^\s+(httptoolkit|pms) ") { throw "Expected no httptoolkit/pms entries. Got:`n$output" }
+}
+Test-Step "hiddenMenuItems hides entries from the plain menu but not from the hotkey search" {
+    # the synthetic config hides common/checkout-branch.ps1; "nhanh" (= branch) searches for it
+    $plain = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") nhanh 2>&1 | Out-String
+    if ($plain -match "common checkout-branch") { throw "Plain menu should hide checkout-branch. Got:`n$plain" }
+    $hotkey = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") --spotlight nhanh 2>&1 | Out-String
+    if ($hotkey -notmatch "Did you mean:\s+common checkout-branch") { throw "Hotkey search should still find checkout-branch. Got:`n$hotkey" }
 }
 Test-Step "ztms.ps1 --spotlight doesn't count as a direct-run target" {
     $output = & pwsh -NoProfile -File (Join-Path $testRoot "ztms.ps1") --spotlight nope/nope 2>&1 | Out-String

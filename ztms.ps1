@@ -23,13 +23,21 @@ Import-Module (Join-Path $PSScriptRoot "modules\TmsConfig.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "modules\ProjectMenu.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot "modules\UpdateCheck.psm1") -Force
 
+# --spotlight: opened by the global hotkey (see Hotkey.psm1). Search box only,
+# no grouped list, in a short window that grows while a script runs.
+$spotlight = @($args) -contains '--spotlight'
+$targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
+
 # Config may not exist yet on a first run (SETUP > init-config creates it), so
 # the hide list is best-effort — no config just means nothing is hidden.
+# hiddenMenuItems only trims the plain menu: the hotkey search box finds
+# everything (you only see what you type for). The automatic hides below —
+# entries whose feature isn't configured — apply to both.
 $hiddenMenuItems = @()
 $config = $null
 try {
     $config = Get-TmsConfig
-    if ($config.hiddenMenuItems) { $hiddenMenuItems = @($config.hiddenMenuItems | ForEach-Object { $_.Replace('\', '/').ToLowerInvariant() }) }
+    if ($config.hiddenMenuItems -and -not $spotlight) { $hiddenMenuItems = @($config.hiddenMenuItems | ForEach-Object { $_.Replace('\', '/').ToLowerInvariant() }) }
 } catch {}
 
 # install-latest-* needs its android.deploy.<env>.apiKey configured to call
@@ -146,11 +154,6 @@ if ($hiddenMenuItems.Count -gt 0) {
     # Drop groups left with no entries (e.g. PMS on a machine without it) so no empty header shows
     $groups = @($groups | Where-Object { $_.Entries.Count -gt 0 })
 }
-
-# --spotlight: opened by the global hotkey (see Hotkey.psm1). Search box only,
-# no grouped list, in a short window that grows while a script runs.
-$spotlight = @($args) -contains '--spotlight'
-$targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
 
 # Hotkey window only: per configured service (whose repo folder exists), one
 # "VS CODE" and one "VISUAL STUDIO" entry, so typing "order code" /
