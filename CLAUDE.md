@@ -219,7 +219,13 @@ that script, and the menu always regains control afterward. Escape exits
 `BE`/`FE`/`DB`/`Redis`/`Setup`) — it is not auto-discovered from the
 filesystem. Give it a `Desc` (a short English sentence with the words
 people would search for): search matches on it, and the smoke test fails
-on an entry without one. This also means environment variables set by one menu pick
+on an entry without one. Entries may also carry `Args` (passed to the
+script) and `Quick` (hotkey window: run in the small window and close it on
+success, Spotlight-style, instead of growing it + "press any key"). With
+`--spotlight`, ztms.ps1 appends a generated "VS CODE" group — one Quick
+entry per configured service whose repo folder exists, running
+`common/open-vscode.ps1 -Service <name>` — so "order code" opens that repo
+directly; it's not in the plain menu (a row per service). This also means environment variables set by one menu pick
 (e.g. `901_set-env.ps1`) do **not** propagate to a script picked afterward
 in the same `ztms` session; persisting at the user level
 (`[System.Environment]::SetEnvironmentVariable($k, $v, "User")`) is the

@@ -55,7 +55,7 @@ $script:Inflections = @("s", "es", "d", "ed", "ing", "er", "ers")
 # Filler words dropped from the query (unless it's the word still being typed)
 $script:StopWords = @(
     "the", "a", "an", "to", "of", "for", "from", "and", "in", "on", "my", "me", "please", "i", "want",
-    "ve", "cua", "cho", "cac", "nhung", "voi", "la", "len", "di", "giup", "muon", "minh", "toi", "cai", "nao", "hay", "thi", "de", "vao", "nhe", "luon"
+    "ve", "cua", "cho", "cac", "nhung", "voi", "la", "len", "di", "giup", "muon", "minh", "toi", "cai", "nao", "hay", "thi", "de", "vao", "nhe", "luon", "bang"
 )
 
 function ConvertTo-MenuSearchText {

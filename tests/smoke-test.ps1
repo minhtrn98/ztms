@@ -226,6 +226,14 @@ Test-Step "MenuSearch.psm1 finds entries by meaning (synonyms, Vietnamese, no ac
         $top = @(Find-MenuEntries -Groups $menuGroups -Query $q)[0]
         if (-not $top -or $top.Entry.Path -ne $expectTop[$q]) { throw "'$q' -> $(if ($top) { $top.Entry.Path } else { 'nothing' }), expected $($expectTop[$q])" }
     }
+    # the hotkey window's per-service "VS CODE" entries (same shape ztms.ps1 builds with --spotlight)
+    $vsGroups = @($menuGroups) + [ordered]@{ Name = "VS CODE"; Entries = @(
+        foreach ($svc in "TMS.OrderService", "tms.fleetservice", "TMS.RouteService") { [ordered]@{ DisplayName = $svc; Path = "common\open-vscode.ps1"; Args = @("-Service", $svc); Quick = $true; Desc = "Open the $svc repo in VS Code" } }
+    ) }
+    foreach ($q in "order code", "vs code order", "order vs code", "vscode order", "mở order bằng vs code") {
+        $top = @(Find-MenuEntries -Groups $vsGroups -Query $q)[0]
+        if (-not $top -or $top.Entry.DisplayName -ne "TMS.OrderService" -or $top.Partial) { throw "'$q' -> $(if ($top) { "$($top.Group) $($top.Entry.DisplayName)" } else { 'nothing' }), expected VS CODE TMS.OrderService" }
+    }
     if (@(Find-MenuEntries -Groups $menuGroups -Query "zzzq").Count -ne 0) { throw "'zzzq' should match nothing" }
     if (@(Find-MenuEntries -Groups $menuGroups -Query "").Count -ne @($menuGroups | ForEach-Object { $_.Entries }).Count) { throw "Empty query should return every entry" }
 }

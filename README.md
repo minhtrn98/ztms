@@ -142,7 +142,10 @@ best matches by name, group and description show up, so you don't need to
 know the exact script name. (The regular `ztms` menu has no search — it's
 the grouped list with Up/Down and 1–9.) It understands synonyms in English and Vietnamese, accents optional —
 e.g. `tắt service` → BACKEND stop-all, `kéo db dev` → DATABASE [dev]
-clone-restore, `toa do buu cuc` → ANDROID set-location. Up/Down + Enter to
+clone-restore, `toa do buu cuc` → ANDROID set-location. Each configured
+service also gets a "VS CODE" entry there: `order code`, `vs code order` or
+`order vs code` → Enter opens the TMS.OrderService repo in VS Code right
+away (no picker) and the window closes. Up/Down + Enter to
 run, Backspace (Ctrl+Backspace for a whole word) to edit, Esc clears the
 search (Esc again closes it).
 

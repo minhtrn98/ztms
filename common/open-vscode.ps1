@@ -1,7 +1,11 @@
 # ======================================
 # Open one or more configured services in VS Code
+# -Service <name>[,<name>]: open those directly, no picker (what the hotkey
+# window's "VS CODE" entries run — e.g. type "order code").
 # Reads service list/reposRoot from tms.config.json — run 900_init-config.ps1 first.
 # ======================================
+
+param([string[]]$Service)
 
 Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\TmsConfig.psm1") -Force
 Import-Module (Join-Path (Split-Path $PSScriptRoot -Parent) "modules\ProjectMenu.psm1") -Force
@@ -19,7 +23,16 @@ if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$selectedNames = Show-ProjectSelection -Items $serviceNames
+if ($Service) {
+    $selectedNames = @($Service | ForEach-Object {
+        $wanted = $_
+        $known = $serviceNames | Where-Object { $_ -eq $wanted } | Select-Object -First 1
+        if ($known) { $known } else { Write-Host "Unknown service: $wanted (not in tms.config.json services)" -ForegroundColor Red }
+    })
+    if ($selectedNames.Count -eq 0) { exit 1 }
+} else {
+    $selectedNames = Show-ProjectSelection -Items $serviceNames
+}
 
 foreach ($name in $selectedNames) {
     $servicePath = Join-Path $config.reposRoot $name

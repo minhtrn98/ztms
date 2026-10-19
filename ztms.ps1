@@ -58,7 +58,6 @@ $groups = @(
             [ordered]@{ DisplayName = "pull-all"; Path = "common\pull-all.ps1"; Desc = "git pull every repo under reposRoot (in parallel)" }
             [ordered]@{ DisplayName = "checkout-branch"; Path = "common\checkout-branch.ps1"; Desc = "Switch every repo to the same git branch" }
             [ordered]@{ DisplayName = "open-vscode"; Path = "common\open-vscode.ps1"; Desc = "Open selected service repos in VS Code" }
-            [ordered]@{ DisplayName = "open-working-folder"; Path = "common\open-working-folder.ps1"; Desc = "Open the repos folder (reposRoot) in File Explorer" }
         )
     }
     [ordered]@{
@@ -152,6 +151,20 @@ if ($hiddenMenuItems.Count -gt 0) {
 $spotlight = @($args) -contains '--spotlight'
 $targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
 
+# Hotkey window only: one "VS CODE" entry per configured service (whose repo
+# folder exists), so typing "order code" / "vs code order" opens that repo
+# straight away. Args are passed to the script; Quick = run it and close the
+# window, Spotlight-style, instead of the usual full-size run + "press any
+# key". Not in the plain menu — it would add a row per service.
+if ($spotlight -and $config -and $config.services -and $config.reposRoot -and $hiddenMenuItems -notcontains "common/open-vscode.ps1") {
+    $vscodeEntries = @(foreach ($svc in $config.services) {
+        if ($svc.name -and (Test-Path -LiteralPath (Join-Path $config.reposRoot $svc.name))) {
+            [ordered]@{ DisplayName = $svc.name; Path = "common\open-vscode.ps1"; Args = @("-Service", $svc.name); Quick = $true; Desc = "Open the $($svc.name) repo in VS Code" }
+        }
+    })
+    if ($vscodeEntries.Count -gt 0) { $groups += [ordered]@{ Name = "VS CODE"; Entries = $vscodeEntries } }
+}
+
 if ($targetArgs.Count -gt 0) {
     $target = (($targetArgs -join " ").Trim() -replace '\\', '/').ToLowerInvariant()
     $match = $null
@@ -212,24 +225,32 @@ while ($true) {
         break
     }
 
-    if ($spotlight) {
+    # Quick entries (open something) stay in the small window; anything else
+    # gets the window grown for its output
+    $expanded = $false
+    if ($spotlight -and -not $selected.Quick) {
         # Imported only now: its Add-Type compile would delay the search box
         if (-not $spotlightHotkey) {
             Import-Module (Join-Path $PSScriptRoot "modules\Hotkey.psm1") -Force
             try { $spotlightHotkey = Get-TmsHotkey -Config $config } catch {}  # bad hotkey.keys: just don't resize
         }
-        if ($spotlightHotkey) { Set-TmsSpotlightWindowSize -Hotkey $spotlightHotkey -Full }
+        if ($spotlightHotkey) { Set-TmsSpotlightWindowSize -Hotkey $spotlightHotkey -Full; $expanded = $true }
     }
 
     $scriptPath = Join-Path $PSScriptRoot $selected.Path
-    Write-Host "`n-> Running: $($selected.Path)`n" -ForegroundColor Green
+    $entryArgs = @(if ($selected.Args) { $selected.Args })
+    Write-Host "`n-> Running: $($selected.Path) $($entryArgs -join ' ')`n" -ForegroundColor Green
 
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath @entryArgs
+
+    # Done and it worked: close the window like Spotlight does. (On failure,
+    # fall through so the error stays readable.)
+    if ($spotlight -and $selected.Quick -and $LASTEXITCODE -eq 0) { break }
 
     Write-Host "`nPress any key to return to the menu..." -ForegroundColor Gray
     [Console]::CursorVisible = $false
     $null = [Console]::ReadKey($true)
     [Console]::CursorVisible = $true
 
-    if ($spotlightHotkey) { Set-TmsSpotlightWindowSize -Hotkey $spotlightHotkey }
+    if ($expanded) { Set-TmsSpotlightWindowSize -Hotkey $spotlightHotkey }
 }
