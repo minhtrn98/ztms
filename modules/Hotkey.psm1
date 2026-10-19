@@ -71,29 +71,32 @@ namespace Ztms {
         const uint WM_HOTKEY = 0x0312;
 
         // Un-maximize (Windows Terminal's launchMode may be "maximized") and
-        // center the window on the monitor under the mouse, sized as a
-        // percentage of that monitor's work area (taskbar excluded).
-        public static void Center(IntPtr hWnd, int widthPercent, int heightPercent) {
+        // place the window on the monitor under the mouse (see TargetRect),
+        // sized as a percentage of that monitor's work area (taskbar excluded).
+        public static void Center(IntPtr hWnd, int widthPercent, int heightPercent, int topPercent) {
             // Real pixels, so the math holds on scaled (125%/150%) monitors
             SetThreadDpiAwarenessContext(new IntPtr(-4));  // PER_MONITOR_AWARE_V2
             POINT cursor;
             GetCursorPos(out cursor);
-            Place(hWnd, MonitorFromPoint(cursor, 2), widthPercent, heightPercent);  // MONITOR_DEFAULTTONEAREST
+            Place(hWnd, MonitorFromPoint(cursor, 2), widthPercent, heightPercent, topPercent);  // MONITOR_DEFAULTTONEAREST
         }
 
-        // Same, but re-centered on the monitor the window is already on — for
-        // resizing it in place (search box <-> full size) without it jumping
-        // to wherever the mouse happens to be.
-        public static void Resize(IntPtr hWnd, int widthPercent, int heightPercent) {
+        // Same, but on the monitor the window is already on — for resizing it
+        // in place (search box <-> full size) without it jumping to wherever
+        // the mouse happens to be.
+        public static void Resize(IntPtr hWnd, int widthPercent, int heightPercent, int topPercent) {
             SetThreadDpiAwarenessContext(new IntPtr(-4));
-            Place(hWnd, MonitorFromWindow(hWnd, 2), widthPercent, heightPercent);
+            Place(hWnd, MonitorFromWindow(hWnd, 2), widthPercent, heightPercent, topPercent);
         }
 
         // True if hWnd is a visible terminal window (see ListTerminalWindows).
         public static bool IsTerminalWindow(IntPtr hWnd) { return TerminalWindows(false).Contains(hWnd); }
 
-        // The centered rect (screen coordinates) on that monitor's work area.
-        static bool TargetRect(IntPtr monitor, int widthPercent, int heightPercent, out int x, out int y, out int w, out int h) {
+        // The target rect (screen coordinates) on that monitor's work area:
+        // centered horizontally; vertically, topPercent of the height left
+        // over goes above the window (50 = centered, less = higher up), so
+        // any size stays on screen.
+        static bool TargetRect(IntPtr monitor, int widthPercent, int heightPercent, int topPercent, out int x, out int y, out int w, out int h) {
             x = y = w = h = 0;
             var info = new MONITORINFO();
             info.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
@@ -101,13 +104,13 @@ namespace Ztms {
             var work = info.rcWork;
             int areaW = work.Right - work.Left, areaH = work.Bottom - work.Top;
             w = areaW * widthPercent / 100; h = areaH * heightPercent / 100;
-            x = work.Left + (areaW - w) / 2; y = work.Top + (areaH - h) / 2;
+            x = work.Left + (areaW - w) / 2; y = work.Top + (areaH - h) * topPercent / 100;
             return true;
         }
 
-        static void Place(IntPtr hWnd, IntPtr monitor, int widthPercent, int heightPercent) {
+        static void Place(IntPtr hWnd, IntPtr monitor, int widthPercent, int heightPercent, int topPercent) {
             int x, y, w, h;
-            if (!TargetRect(monitor, widthPercent, heightPercent, out x, out y, out w, out h)) return;
+            if (!TargetRect(monitor, widthPercent, heightPercent, topPercent, out x, out y, out w, out h)) return;
 
             // One SetWindowPlacement call un-maximizes straight into the
             // centered rect (ShowWindow restore + SetWindowPos would flash the
@@ -173,20 +176,20 @@ namespace Ztms {
         public static List<IntPtr> ListTerminalWindowsIncludingHidden() { return TerminalWindows(true); }
 
         // Waits (up to timeoutMs) for a terminal window that isn't in `before`
-        // and gets it centered on the monitor under the mouse. Windows
+        // and gets it placed on the monitor under the mouse. Windows
         // Terminal creates the window hidden ~100ms before showing it, so
         // busy-polling from launch catches it while hidden and moves it then:
         // it first appears already in place. If it's shown maximized anyway
         // (wt's global launchMode, when not launched with --focus), it's
         // re-placed the instant it's shown, which keeps the maximized frame
         // to a few ms. Returns the window, or Zero if none appeared.
-        public static IntPtr WaitForNewWindow(IntPtr[] before, int timeoutMs, int widthPercent, int heightPercent) {
+        public static IntPtr WaitForNewWindow(IntPtr[] before, int timeoutMs, int widthPercent, int heightPercent, int topPercent) {
             SetThreadDpiAwarenessContext(new IntPtr(-4));  // PER_MONITOR_AWARE_V2
             POINT cursor;
             GetCursorPos(out cursor);
             IntPtr monitor = MonitorFromPoint(cursor, 2);  // MONITOR_DEFAULTTONEAREST
             int x, y, w, h;
-            bool haveTarget = TargetRect(monitor, widthPercent, heightPercent, out x, out y, out w, out h);
+            bool haveTarget = TargetRect(monitor, widthPercent, heightPercent, topPercent, out x, out y, out w, out h);
 
             var known = new HashSet<IntPtr>(before);
             var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -204,7 +207,7 @@ namespace Ztms {
                     RECT r;
                     GetWindowRect(found, out r);
                     if (IsZoomed(found) || r.Left != x || r.Top != y || r.Right - r.Left != w || r.Bottom - r.Top != h) {
-                        Place(found, monitor, widthPercent, heightPercent);
+                        Place(found, monitor, widthPercent, heightPercent, topPercent);
                     }
                     return found;
                 }
@@ -290,7 +293,9 @@ function Get-TmsHotkey {
     # Also carries the window's look: size as a percentage of the monitor's
     # work area (clamped to 20..100) — widthPercent (default 50),
     # heightPercent (80, while a script runs), searchHeightPercent (35, the
-    # search box the hotkey opens) — plus fontSize (14), padding (16 px),
+    # search box the hotkey opens) — and its height on screen, topPercent
+    # (35: that share of the leftover height sits above the window; 50 =
+    # centered, 0 = at the top) — plus fontSize (14), padding (16 px),
     # opacity (85 %) and acrylic (false: plain see-through; true: blurred,
     # needs Windows' "Transparency effects" on) for its Windows Terminal
     # profile (Set-TmsHotkeyWtProfile).
@@ -298,7 +303,7 @@ function Get-TmsHotkey {
     $section = if ($Config -and $Config.hotkey) { $Config.hotkey }
     $hotkey = ConvertTo-TmsHotkey -Keys $(if ($section) { $section.keys })
     # name, default, min, max
-    foreach ($s in @(@("widthPercent", 50, 20, 100), @("heightPercent", 80, 20, 100), @("searchHeightPercent", 35, 20, 100), @("fontSize", 14, 6, 48), @("padding", 16, 0, 64), @("opacity", 85, 0, 100))) {
+    foreach ($s in @(@("widthPercent", 50, 20, 100), @("heightPercent", 80, 20, 100), @("searchHeightPercent", 35, 20, 100), @("topPercent", 35, 0, 100), @("fontSize", 14, 6, 48), @("padding", 16, 0, 64), @("opacity", 85, 0, 100))) {
         $value = if ($section -and $null -ne $section.($s[0])) { [int]$section.($s[0]) } else { $s[1] }
         $hotkey | Add-Member -NotePropertyName ($s[0].Substring(0, 1).ToUpper() + $s[0].Substring(1)) -NotePropertyValue ([Math]::Min($s[3], [Math]::Max($s[2], $value)))
     }
@@ -458,11 +463,11 @@ function Show-TmsHotkeyMenu {
     # Remember the first terminal window that shows up as "ours" (up to 5s),
     # centered as it appears (WaitForNewWindow), and make sure it's the one in
     # front — the launch alone doesn't always win focus
-    $script:MenuWindow = $native::WaitForNewWindow($before, 5000, $Hotkey.WidthPercent, $Hotkey.SearchHeightPercent)
+    $script:MenuWindow = $native::WaitForNewWindow($before, 5000, $Hotkey.WidthPercent, $Hotkey.SearchHeightPercent, $Hotkey.TopPercent)
     if ($script:MenuWindow -ne [IntPtr]::Zero) {
-        # wt may still apply launchMode a beat after first showing the window — re-center if so
+        # wt may still apply launchMode a beat after first showing the window — re-place it if so
         Start-Sleep -Milliseconds 150
-        if ($native::IsZoomed($script:MenuWindow)) { $native::Center($script:MenuWindow, $Hotkey.WidthPercent, $Hotkey.SearchHeightPercent) }
+        if ($native::IsZoomed($script:MenuWindow)) { $native::Center($script:MenuWindow, $Hotkey.WidthPercent, $Hotkey.SearchHeightPercent, $Hotkey.TopPercent) }
         if ($native::GetForegroundWindow() -ne $script:MenuWindow) { $native::Activate($script:MenuWindow) }
     }
 }
@@ -488,7 +493,7 @@ function Set-TmsSpotlightWindowSize {
     $hwnd = $native::GetForegroundWindow()
     if (-not $native::IsTerminalWindow($hwnd)) { return }
     $rowsBefore = [Console]::WindowHeight
-    $native::Resize($hwnd, $Hotkey.WidthPercent, $(if ($Full) { $Hotkey.HeightPercent } else { $Hotkey.SearchHeightPercent }))
+    $native::Resize($hwnd, $Hotkey.WidthPercent, $(if ($Full) { $Hotkey.HeightPercent } else { $Hotkey.SearchHeightPercent }), $Hotkey.TopPercent)
     # Up to 1s; normally a few tens of ms. (Already the right size = no change to wait for, just the timeout.)
     for ($i = 0; $i -lt 50 -and [Console]::WindowHeight -eq $rowsBefore; $i++) { Start-Sleep -Milliseconds 20 }
 }

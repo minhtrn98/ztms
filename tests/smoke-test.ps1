@@ -191,9 +191,9 @@ Test-Step "Hotkey.psm1 parses hotkey strings and rejects bad ones" {
     if ($hk.Vk -ne 0x35 -or ($hk.Modifiers -band 0xF) -ne 0xC) { throw "Win+Shift+5 -> $($hk | ConvertTo-Json -Compress)" }
     $hk = Get-TmsHotkey -Config ([PSCustomObject]@{})
     if ($hk.Display -ne "Ctrl+Space" -or $hk.WidthPercent -ne 50 -or $hk.HeightPercent -ne 80 -or $hk.SearchHeightPercent -ne 35) { throw "Missing hotkey section should default to Ctrl+Space 50x80 (search 35), got $($hk | ConvertTo-Json -Compress)" }
-    if ($hk.FontSize -ne 14 -or $hk.Padding -ne 16 -or $hk.Opacity -ne 85 -or $hk.Acrylic) { throw "Missing hotkey section should default to font 14 / padding 16 / opacity 85 / no acrylic, got $($hk | ConvertTo-Json -Compress)" }
-    $hk = Get-TmsHotkey -Config ([PSCustomObject]@{ hotkey = [PSCustomObject]@{ keys = "Alt+Q"; widthPercent = 5; heightPercent = 150; fontSize = 99; padding = 0 } })
-    if ($hk.WidthPercent -ne 20 -or $hk.HeightPercent -ne 100) { throw "Window percents should clamp to 20..100, got $($hk | ConvertTo-Json -Compress)" }
+    if ($hk.FontSize -ne 14 -or $hk.Padding -ne 16 -or $hk.Opacity -ne 85 -or $hk.Acrylic -or $hk.TopPercent -ne 35) { throw "Missing hotkey section should default to font 14 / padding 16 / opacity 85 / no acrylic / top 35, got $($hk | ConvertTo-Json -Compress)" }
+    $hk = Get-TmsHotkey -Config ([PSCustomObject]@{ hotkey = [PSCustomObject]@{ keys = "Alt+Q"; widthPercent = 5; heightPercent = 150; topPercent = -10; fontSize = 99; padding = 0 } })
+    if ($hk.WidthPercent -ne 20 -or $hk.HeightPercent -ne 100 -or $hk.TopPercent -ne 0) { throw "Window percents should clamp to 20..100 (topPercent 0..100), got $($hk | ConvertTo-Json -Compress)" }
     if ($hk.FontSize -ne 48 -or $hk.Padding -ne 0) { throw "fontSize should clamp to 48 and padding 0 should be kept, got $($hk | ConvertTo-Json -Compress)" }
     foreach ($bad in "Space", "Ctrl+Alt", "Ctrl+Nope", "Ctrl+A+B", "Ctrl+65") {
         $rejected = $false

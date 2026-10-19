@@ -207,7 +207,9 @@ $config = Get-TmsConfig
   `WaitForNewWindow` busy-polls from before launch, catches the window while
   wt still has it hidden (~100ms before it's shown) and `SetWindowPos`es it
   (no `SWP_SHOWWINDOW`) to `hotkey.widthPercent`/`searchHeightPercent` of the
-  work area of the monitor under the cursor (per-monitor-DPI-aware pixels),
+  work area of the monitor under the cursor (per-monitor-DPI-aware pixels;
+  centered horizontally, vertically `hotkey.topPercent` of the leftover
+  height above it — default 35, so a bit above the middle),
   so it first appears already in place; if it's shown maximized anyway
   (non-focus launch), it's re-placed with one `SetWindowPlacement` the
   instant it's visible (~5ms maximized). Polling with sleeps, or restore +
