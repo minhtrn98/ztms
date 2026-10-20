@@ -24,8 +24,9 @@
 $spotlight = @($args) -contains '--spotlight'
 $targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
 
-# The hotkey window's search line: the ztms tag, then the label, then what
-# you type — or the hint (gray) while nothing's typed yet.
+# The hotkey window's search line (double-size text): the ztms tag, then the
+# label, then what you type — and under it, while nothing's typed yet, the
+# hint (gray, normal size).
 $searchPrefix = "ztms › "
 $searchLabel = "Run: "
 $searchHint = 'type what you want to do, e.g. "pull", "clone db dev", "tắt service"'
@@ -41,12 +42,16 @@ if ($spotlight -and $targetArgs.Count -eq 0) {
     # could turn into "?".
     try {
         $bg = $Host.UI.RawUI.BackgroundColor
-        $Host.UI.Write([ConsoleColor]::Magenta, $bg, $searchPrefix)
-        $Host.UI.Write([ConsoleColor]::White, $bg, $searchLabel)
-        $caret = $searchPrefix.Length + $searchLabel.Length
-        $room = [Console]::WindowWidth - 1 - $caret
-        $Host.UI.Write([ConsoleColor]::DarkGray, $bg, $searchHint.Substring(0, [Math]::Max(0, [Math]::Min($searchHint.Length, $room))))
-        [Console]::SetCursorPosition($caret, 0)
+        foreach ($half in 3, 4) {  # double-height: top half, bottom half (see Show-GroupedMenu)
+            $Host.UI.Write("`e#$half")
+            $Host.UI.Write([ConsoleColor]::Magenta, $bg, $searchPrefix)
+            $Host.UI.WriteLine([ConsoleColor]::White, $bg, $searchLabel)
+        }
+        $hint = "    $searchHint"
+        $Host.UI.Write([ConsoleColor]::DarkGray, $bg, $hint.Substring(0, [Math]::Max(0, [Math]::Min($hint.Length, [Console]::WindowWidth - 1))))
+        # Steady underline cursor on the bottom half, right after the label
+        $Host.UI.Write("`e[4 q")
+        [Console]::SetCursorPosition($searchPrefix.Length + $searchLabel.Length, 1)
     } catch {}
 }
 
@@ -253,8 +258,10 @@ $firstRound = $true
 while ($true) {
     # Not on the hotkey window's first round: the screen is still empty
     # except for the search line drawn at the top, and clearing it would
-    # make it blink
+    # make it blink. Just take the cursor back to the top-left from its spot
+    # on that line, since the menu lays itself out from the cursor's row.
     if (-not ($spotlight -and $firstRound)) { Clear-Host }
+    else { [Console]::CursorVisible = $false; [Console]::SetCursorPosition(0, 0) }
     $firstRound = $false
     if (-not $spotlight) {
         Write-Host "=== TMS scripts ===" -ForegroundColor Magenta

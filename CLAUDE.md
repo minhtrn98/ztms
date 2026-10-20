@@ -67,9 +67,18 @@ $config = Get-TmsConfig
   (deliberately — Up/Down, 1–9 group jump, Enter, Esc). `-SearchOnly` (the
   hotkey window only) replaces the list with a search box: a `ztms › ` tag
   (`-SearchPrefix`, `MenuTheme.Brand` color), a `Run: ` label
-  (`-SearchLabel`) and a gray hint while nothing's typed (`-SearchHint` —
-  all passed in by ztms.ps1, which owns that text), the terminal's
-  real blinking caret after the query, best-first results via
+  (`-SearchLabel`) and the query, in **double-size text** — VT DECDHL, the
+  same text written on two rows prefixed `ESC#3` (top half) / `ESC#4`
+  (bottom half), which Windows Terminal renders through ConPTY; such a row
+  only fits half the columns (`$bigColumns`), the cursor column counts
+  double-width characters, and the terminal draws the cursor on one row
+  only — so it's switched to a steady underline (DECSCUSR `ESC[4 q`,
+  reset with `ESC[0 q` when the menu returns) on the bottom-half row, where
+  it lands on the big text's baseline; a bar would be half height.
+  `Clear-Host` resets the rows to normal.
+  Under it, normal size: a gray hint while nothing's typed (`-SearchHint` —
+  all three strings passed in by ztms.ps1, which owns that text), the terminal's
+  real caret after the query, best-first results via
   `Find-MenuEntries` (each entry's `Desc` feeds the search only — it's
   deliberately not shown), Backspace/Ctrl+Backspace(=Ctrl+W), Escape clears
   the query before it quits), `Confirm-Prompt` (y/N prompt).

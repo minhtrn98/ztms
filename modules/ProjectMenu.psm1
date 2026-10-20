@@ -167,10 +167,11 @@ function Show-GroupedMenu {
     Group.Entries), or $null on Escape.
 
     -SearchOnly (ztms.ps1 --spotlight, the hotkey window) swaps all that for
-    a search box: no grouped list, just the search line ($SearchPrefix in
-    the Brand color, $SearchLabel, then the query with the terminal's own
-    blinking caret — or, while it's empty, $SearchHint in gray) and as many
-    results as fit the (short) window.
+    a search box: no grouped list, just the search line in double-size text
+    ($SearchPrefix in the Brand color, $SearchLabel, then the query with the
+    terminal's own caret, a steady underline) and below it, normal size, as many
+    results as fit the (short) window — or, while nothing's typed,
+    $SearchHint in gray.
     Typing matches names, group names and each entry's Desc — search-only,
     never shown (Find-MenuEntries in MenuSearch.psm1 — synonyms, English +
     Vietnamese, accents optional) — best-first. Backspace / Ctrl+Backspace
@@ -225,6 +226,8 @@ function Show-GroupedMenu {
     # Every row is cut to the window width — a row that wrapped would push
     # all rows below it down a line and break the in-place redraw.
     $width = [Math]::Max(40, [Console]::WindowWidth - 1)
+    # The -SearchOnly search line is double-width text: half as many columns
+    $bigColumns = [int][Math]::Floor($width / 2)
 
     $cursor = $selectableIndices[0]
     $query = ""
@@ -235,11 +238,11 @@ function Show-GroupedMenu {
     $view = @{ Scroll = 0 }
 
     function Write-MenuRow {
-        # One full-width row: $Lead, $Text, then $Tail, each in its own color, cut/padded to $width.
-        param([string]$Text, $Color, [string]$Tail = "", $TailColor = $Color, [string]$Lead = "", $LeadColor = $Color)
-        if ($Lead.Length -gt $width) { $Lead = $Lead.Substring(0, $width) }
+        # One row: $Lead, $Text, then $Tail, each in its own color, cut/padded to $Columns (the window width).
+        param([string]$Text, $Color, [string]$Tail = "", $TailColor = $Color, [string]$Lead = "", $LeadColor = $Color, [int]$Columns = $width)
+        if ($Lead.Length -gt $Columns) { $Lead = $Lead.Substring(0, $Columns) }
         if ($Lead) { Write-Host $Lead -ForegroundColor $LeadColor -NoNewline }
-        $room = $width - $Lead.Length
+        $room = $Columns - $Lead.Length
         if ($Text.Length -gt $room) { $Text = $Text.Substring(0, $room) }
         $room -= $Text.Length
         if ($Tail.Length -gt $room) { $Tail = $Tail.Substring(0, $room) }
@@ -251,12 +254,17 @@ function Show-GroupedMenu {
         param($Top)
         # Hide the real cursor while the rows are written. In the search box,
         # park it right after the query and show it again — the terminal's
-        # own blinking caret, like a normal text box. The plain menu keeps it
-        # hidden (the ▸ pointer is the cursor there).
+        # own caret, like a normal text box. It's a steady underline
+        # (DECSCUSR, set below) on the search line's bottom half: the terminal
+        # draws the cursor on one row only, so a bar would be half as tall as
+        # the text, while an underline there sits right at its baseline,
+        # double width like the text. The column counts in double-width
+        # characters. The plain menu keeps it hidden (the ▸ pointer is the
+        # cursor there).
         [Console]::CursorVisible = $false
         Write-MenuBody -Top $Top
         if ($SearchOnly) {
-            [Console]::SetCursorPosition([Math]::Min($width - 1, $SearchPrefix.Length + $SearchLabel.Length + $query.Length), $Top)
+            [Console]::SetCursorPosition([Math]::Min($bigColumns - 1, $SearchPrefix.Length + $SearchLabel.Length + $query.Length), $Top + 1)
             [Console]::CursorVisible = $true
         }
     }
@@ -265,28 +273,34 @@ function Show-GroupedMenu {
         param($Top)
         [Console]::SetCursorPosition(0, $Top)
 
-        if ($query) {
-            $note = if ($results.Count -gt 0 -and $results[0].Partial) { "   (no exact match - closest results)" } else { "" }
-            Write-MenuRow "$SearchLabel$query" $MenuTheme.Search $note $MenuTheme.Desc -Lead $SearchPrefix -LeadColor $MenuTheme.Brand
-            $drawn = 0
-            if ($results.Count -eq 0) { Write-MenuRow "    No matches." $MenuTheme.Error; $drawn++ }
-            for ($i = 0; $i -lt $results.Count; $i++) {
-                $r = $results[$i]
-                $pointer = if ($i -eq $resultCursor) { "▸" } else { " " }
-                $text = "$pointer   " + $r.Group.PadRight($groupWidth) + $r.Entry.DisplayName
-                $color = if ($i -eq $resultCursor) { $MenuTheme.Cursor } else { $MenuTheme.Normal }
-                Write-MenuRow $text $color
-                $drawn++
-            }
-            # Blank out the rest of the reserved area (the full list, or in
-            # -SearchOnly the results area)
-            for (; $drawn -lt $listRows; $drawn++) { Write-MenuRow "" $MenuTheme.Normal }
-            return
-        }
-
         if ($SearchOnly) {
-            Write-MenuRow $SearchLabel $MenuTheme.Search $SearchHint $MenuTheme.Desc -Lead $SearchPrefix -LeadColor $MenuTheme.Brand
-            for ($i = 0; $i -lt $listRows; $i++) { Write-MenuRow "" $MenuTheme.Normal }
+            # The search line in double-height text, so it stands out from
+            # the results: VT DECDHL — the same text on two rows, ESC#3 showing
+            # its top half and ESC#4 its bottom half — which only fits half
+            # the columns. (Clear-Host resets rows back to normal.)
+            foreach ($half in 3, 4) {
+                Write-Host "`e#$half" -NoNewline
+                Write-MenuRow "$SearchLabel$query" $MenuTheme.Search -Lead $SearchPrefix -LeadColor $MenuTheme.Brand -Columns $bigColumns
+            }
+            # Normal-size rows below: the hint while nothing's typed, else the results
+            $drawn = 0
+            if (-not $query) {
+                Write-MenuRow "    $SearchHint" $MenuTheme.Desc; $drawn++
+            } elseif ($results.Count -eq 0) {
+                Write-MenuRow "    No matches." $MenuTheme.Error; $drawn++
+            } else {
+                for ($i = 0; $i -lt $results.Count; $i++) {
+                    $r = $results[$i]
+                    $pointer = if ($i -eq $resultCursor) { "▸" } else { " " }
+                    $text = "$pointer   " + $r.Group.PadRight($groupWidth) + $r.Entry.DisplayName
+                    $color = if ($i -eq $resultCursor) { $MenuTheme.Cursor } else { $MenuTheme.Normal }
+                    $note = if ($i -eq 0 -and $r.Partial) { "   (no exact match - closest results)" } else { "" }
+                    Write-MenuRow $text $color $note $MenuTheme.Desc
+                    $drawn++
+                }
+            }
+            # Blank out the rest of the results area
+            for (; $drawn -lt $listRows; $drawn++) { Write-MenuRow "" $MenuTheme.Normal }
             return
         }
 
@@ -313,11 +327,11 @@ function Show-GroupedMenu {
     }
 
     if ($SearchOnly) {
-        # No prompt/hint line — the search box is the whole UI (keys: Up/Down,
+        # No prompt line — the search box is the whole UI (keys: Up/Down,
         # Enter, Esc). Results get whatever rows the window has left (it's
         # sized small on purpose).
-        $listRows = [Math]::Min(15, [Math]::Max(1, [Console]::WindowHeight - [Console]::CursorTop - 2))
-        $height = $listRows + 1  # + the search line above the results
+        $listRows = [Math]::Min(15, [Math]::Max(1, [Console]::WindowHeight - [Console]::CursorTop - 3))
+        $height = $listRows + 2  # + the (double-height) search line above the results
     } else {
         Write-Host "$Prompt (Up/Down: move, 1-9: jump to group, Enter: select, Esc: quit):" -ForegroundColor $MenuTheme.Hint
         # The whole list if it fits, else as many rows as the window has
@@ -336,6 +350,7 @@ function Show-GroupedMenu {
     1..$height | ForEach-Object { Write-Host "" }
     $top = [Math]::Max(0, [Console]::CursorTop - $height)
     [Console]::CursorVisible = $false
+    if ($SearchOnly) { Write-Host "`e[4 q" -NoNewline }  # steady (non-blinking) underline cursor (see Draw-Menu)
     Draw-Menu -Top $top
     if ($SearchOnly) {
         # Warm the search up (synonym table + per-entry cache, ~100ms) now that
@@ -421,7 +436,8 @@ function Show-GroupedMenu {
     # A search result list is shorter than the reserved area (the rest is
     # blanked) — park the cursor right under the last result so whatever runs
     # next prints there, not below a gap of empty rows.
-    $usedRows = if ($query) { 1 + [Math]::Max(1, $results.Count) } elseif ($SearchOnly) { 1 } else { $height }
+    $usedRows = if (-not $SearchOnly) { $height } elseif ($query) { 2 + [Math]::Max(1, $results.Count) } else { 2 }
+    if ($SearchOnly) { Write-Host "`e[0 q" -NoNewline }  # back to the profile's cursor shape for whatever runs next
     [Console]::SetCursorPosition(0, $top + $usedRows)
     [Console]::CursorVisible = $true
     return $selectedEntry
