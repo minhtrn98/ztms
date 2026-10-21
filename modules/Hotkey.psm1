@@ -12,11 +12,18 @@
 # showTerminalTitleInTitlebar is off — so only that window is toggled; a
 # `ztms` typed into your own terminal is left alone.
 #
+# Apps in hotkey.passthroughApps (default: Visual Studio, whose Ctrl+Space is
+# Complete Word) keep the hotkey: pressed with one of them in front, it's
+# handed on to that app (PassThrough); pressed twice quickly, it opens ztms.
+#
 # Reads hotkey.keys from tms.config.json (default "Ctrl+Space").
 
 $script:HotkeyTaskName = "ztms Hotkey"
 $script:HotkeyTabTitle = "ztms"
 $script:HotkeyDefaultKeys = "Ctrl+Space"
+$script:HotkeyDefaultPassthroughApps = @("devenv")
+# A second press within this long after one handed to a passthrough app opens ztms (Windows' default double-click time)
+$script:HotkeyDoublePressMs = 500
 $script:HotkeyId = 1
 $script:MenuWindow = [IntPtr]::Zero
 $script:HotkeyLogPath = Join-Path $env:TEMP "ztms-hotkey.log"
@@ -41,6 +48,15 @@ namespace Ztms {
         struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
         [StructLayout(LayoutKind.Sequential)]
         struct WINDOWPLACEMENT { public int length; public int flags; public int showCmd; public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition; }
+        [StructLayout(LayoutKind.Sequential)]
+        struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+        [StructLayout(LayoutKind.Sequential)]
+        struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+        // INPUT's union is as big as its biggest member, MOUSEINPUT — SendInput rejects a smaller struct
+        [StructLayout(LayoutKind.Explicit)]
+        struct INPUTUNION { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
+        [StructLayout(LayoutKind.Sequential)]
+        struct INPUT { public uint type; public INPUTUNION u; }
 
         [DllImport("user32.dll", SetLastError = true)] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -67,8 +83,75 @@ namespace Ztms {
         [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
         [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
         [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+        [DllImport("user32.dll")] static extern uint SendInput(uint count, INPUT[] inputs, int size);
+        [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vk);
+        [DllImport("user32.dll")] static extern uint MapVirtualKey(uint code, uint mapType);
 
         const uint WM_HOTKEY = 0x0312;
+        // RegisterHotKey's MOD_ALT / MOD_CONTROL / MOD_SHIFT / MOD_WIN, and their keys
+        static readonly uint[] ModFlags = { 0x1, 0x2, 0x4, 0x8 };
+        static readonly ushort[] ModKeys = { 0x12, 0x11, 0x10, 0x5B };  // VK_MENU, VK_CONTROL, VK_SHIFT, VK_LWIN
+
+        // Process name (no .exe) of the window in front, or null.
+        public static string ForegroundProcessName() {
+            uint pid;
+            GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+            if (pid == 0) return null;
+            try { return System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch { return null; }
+        }
+
+        // Hands a hotkey press on to the window in front, as if the hotkey
+        // weren't registered: unregisters it, types the keystroke with
+        // SendInput, registers it again. SendInput does its hotkey matching
+        // before it returns, so the re-registered hotkey can't catch the
+        // typed key. Modifiers still held are left alone; ones already let go
+        // are pressed around the key. If the key itself is still held, only
+        // its key-down is typed and the hotkey stays unregistered until it's
+        // let go (up to 5s): the app gets the real key-repeat and key-up, and
+        // a key-repeat isn't taken for a second press. (No effect on an
+        // elevated app: Windows drops SendInput into it.) False if the hotkey
+        // couldn't be registered again.
+        public static bool PassThrough(int id, uint modifiers, uint vk) {
+            UnregisterHotKey(IntPtr.Zero, id);
+            bool held = IsDown(vk);
+            var keys = new List<INPUT>();
+            var release = new List<INPUT>();
+            for (int i = 0; i < ModFlags.Length; i++) {
+                if ((modifiers & ModFlags[i]) != 0 && !IsDown(ModKeys[i])) { keys.Add(Key(ModKeys[i], false)); release.Insert(0, Key(ModKeys[i], true)); }
+            }
+            keys.Add(Key((ushort)vk, false));
+            if (held) {
+                Send(keys);
+                keys.Clear();
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                while (IsDown(vk) && watch.ElapsedMilliseconds < 5000) System.Threading.Thread.Sleep(10);
+            } else {
+                keys.Add(Key((ushort)vk, true));
+            }
+            keys.AddRange(release);
+            Send(keys);
+            return RegisterHotKey(IntPtr.Zero, id, modifiers, vk);
+        }
+
+        static bool IsDown(uint vk) {
+            if (vk == 0x5B) return (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;  // either Win key
+            return (GetAsyncKeyState((int)vk) & 0x8000) != 0;
+        }
+
+        static INPUT Key(ushort vk, bool up) {
+            var input = new INPUT();
+            input.type = 1;  // INPUT_KEYBOARD
+            input.u.ki.wVk = vk;
+            input.u.ki.wScan = (ushort)MapVirtualKey(vk, 0);  // MAPVK_VK_TO_VSC
+            // KEYEVENTF_KEYUP, plus KEYEVENTF_EXTENDEDKEY for the keys that are (PgUp..Delete incl. arrows, Win, Apps, numpad /, NumLock)
+            bool extended = (vk >= 0x21 && vk <= 0x2E) || (vk >= 0x5B && vk <= 0x5D) || vk == 0x6F || vk == 0x90;
+            input.u.ki.dwFlags = (up ? 0x2u : 0u) | (extended ? 0x1u : 0u);
+            return input;
+        }
+
+        static void Send(List<INPUT> inputs) {
+            if (inputs.Count > 0) SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf(typeof(INPUT)));
+        }
 
         // Un-maximize (Windows Terminal's launchMode may be "maximized") and
         // place the window on the monitor under the mouse (see TargetRect),
@@ -298,7 +381,9 @@ function Get-TmsHotkey {
     # centered, 0 = at the top) — plus fontSize (14), padding (16 px),
     # opacity (85 %) and acrylic (false: plain see-through; true: blurred,
     # needs Windows' "Transparency effects" on) for its Windows Terminal
-    # profile (Set-TmsHotkeyWtProfile).
+    # profile (Set-TmsHotkeyWtProfile). And passthroughApps: process names
+    # (".exe" optional) that keep the hotkey for themselves — default
+    # Visual Studio ("devenv"); [] = none.
     param($Config)
     $section = if ($Config -and $Config.hotkey) { $Config.hotkey }
     $hotkey = ConvertTo-TmsHotkey -Keys $(if ($section) { $section.keys })
@@ -308,6 +393,8 @@ function Get-TmsHotkey {
         $hotkey | Add-Member -NotePropertyName ($s[0].Substring(0, 1).ToUpper() + $s[0].Substring(1)) -NotePropertyValue ([Math]::Min($s[3], [Math]::Max($s[2], $value)))
     }
     $hotkey | Add-Member -NotePropertyName Acrylic -NotePropertyValue ([bool]($section -and $section.acrylic))
+    $apps = if ($section -and $null -ne $section.passthroughApps) { $section.passthroughApps } else { $script:HotkeyDefaultPassthroughApps }
+    $hotkey | Add-Member -NotePropertyName PassthroughApps -NotePropertyValue @($apps | ForEach-Object { "$_".Trim() -replace '\.exe$', '' } | Where-Object { $_ })
     $hotkey
 }
 
@@ -502,7 +589,11 @@ function Start-TmsHotkeyListener {
     <#
     Registers the hotkey on this thread and handles presses until the process
     is killed (Stop-TmsHotkeyListener). Returns $false right away if the
-    hotkey can't be registered — another app (or another listener) owns it.
+    hotkey can't be registered — another app (or another listener) owns it —
+    or, later, if it couldn't be taken back after a passthrough.
+
+    With a passthrough app in front, a press goes on to that app; a second
+    one right after it (HotkeyDoublePressMs) opens ztms.
     #>
     param(
         [Parameter(Mandatory)]$Hotkey,
@@ -511,10 +602,23 @@ function Start-TmsHotkeyListener {
 
     $native = [Ztms.HotkeyNative]
     if (-not $native::RegisterHotKey([IntPtr]::Zero, $script:HotkeyId, $Hotkey.Modifiers, $Hotkey.Vk)) { return $false }
+    $passedAt = $null  # TickCount64 of the last press handed to a passthrough app
     try {
         while ($native::WaitForHotkey()) {
             # Headless, so errors go to a log instead of a console nobody sees
-            try { Show-TmsHotkeyMenu -Hotkey $Hotkey -ScriptsRoot $ScriptsRoot }
+            try {
+                $doublePress = $null -ne $passedAt -and [Environment]::TickCount64 - $passedAt -lt $script:HotkeyDoublePressMs
+                if ($Hotkey.PassthroughApps.Count -and -not $doublePress -and $Hotkey.PassthroughApps -contains $native::ForegroundProcessName()) {
+                    if (-not $native::PassThrough($script:HotkeyId, $Hotkey.Modifiers, $Hotkey.Vk)) {
+                        Add-Content -Path $script:HotkeyLogPath -Value "$(Get-Date -Format s) Couldn't re-register $($Hotkey.Display) after passing it through — exiting."
+                        return $false
+                    }
+                    $passedAt = [Environment]::TickCount64
+                    continue
+                }
+                $passedAt = $null
+                Show-TmsHotkeyMenu -Hotkey $Hotkey -ScriptsRoot $ScriptsRoot
+            }
             catch { Add-Content -Path $script:HotkeyLogPath -Value "$(Get-Date -Format s) $($_ | Out-String)" }
         }
     } finally {
@@ -595,7 +699,8 @@ function Get-TmsHotkeyStatus {
     if (-not $task) { return @() }
 
     $rows = @()
-    $display = try { (Get-TmsHotkey -Config $Config).Display } catch { $null }
+    $hotkey = try { Get-TmsHotkey -Config $Config } catch { $null }
+    $display = if ($hotkey) { $hotkey.Display + $(if ($hotkey.PassthroughApps.Count) { " (passed through in $($hotkey.PassthroughApps -join ', '))" }) }
     $rows += if ($display) { [PSCustomObject]@{ Name = "Hotkey"; Status = "OK"; Detail = $display } }
              else { [PSCustomObject]@{ Name = "Hotkey"; Status = "FAIL"; Detail = "invalid hotkey.keys in tms.config.json" } }
     $rows += if (Get-TmsHotkeyListenerProcess) { [PSCustomObject]@{ Name = "Hotkey listener"; Status = "OK"; Detail = "running" } }

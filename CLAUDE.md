@@ -176,9 +176,18 @@ $config = Get-TmsConfig
   `uninstall-hotkey.ps1`. `Install-TmsHotkey` registers a "ztms Hotkey"
   scheduled task (at logon, `conhost --headless`, no time limit) running
   `setup/hotkey-listener.ps1`, which `RegisterHotKey`s on its own thread and
-  blocks in `GetMessage`. Each press toggles the window it opened (focus /
-  minimize), or opens a new `wt -w new` window running `ztms.ps1` if that's
-  gone — launched as `ztms.ps1 --spotlight`: `Show-GroupedMenu -SearchOnly`
+  blocks in `GetMessage`. With an app from `hotkey.passthroughApps` in front
+  (process names, default `["devenv"]` — Ctrl+Space is VS's Complete Word),
+  a press is handed on to that app instead (`HotkeyNative.PassThrough`:
+  `UnregisterHotKey`, retype it with `SendInput`, `RegisterHotKey` again —
+  safe back to back because `SendInput` runs hotkey matching before it
+  returns; if the key is still held only its key-down is typed and
+  re-registering waits for the release, so the app gets real key-repeat and
+  a repeat isn't taken for a new press); a second press within 500ms of that
+  opens ztms. `SendInput` is silently dropped by an elevated app (UIPI), so
+  passthrough does nothing there. Otherwise each press toggles the window it
+  opened (focus / minimize), or opens a new `wt -w new` window running
+  `ztms.ps1` if that's gone — launched as `ztms.ps1 --spotlight`: `Show-GroupedMenu -SearchOnly`
   (search line + as many results as fit, no grouped list, no header) in a
   window `hotkey.searchHeightPercent` tall; ztms.ps1 itself grows it to
   `heightPercent` before running a picked script and shrinks it back after

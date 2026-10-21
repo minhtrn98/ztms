@@ -21,8 +21,11 @@ catch {
 Install-TmsHotkey -Hotkey $hotkey -ScriptsRoot (Split-Path $PSScriptRoot -Parent)
 
 Write-Host "`nPress $($hotkey.Display) anywhere to open ztms; press it again to hide it." -ForegroundColor Cyan
+if ($hotkey.PassthroughApps.Count) {
+    Write-Host "In $($hotkey.PassthroughApps -join ', ') it goes to the app instead — press it twice quickly there to open ztms (hotkey.passthroughApps)." -ForegroundColor Cyan
+}
 if ($hotkey.Display -eq "Ctrl+Space") {
-    Write-Host "Note: this takes Ctrl+Space from every app (e.g. VS Code's 'trigger suggest'). To use another combo, set hotkey.keys in tms.config.json and re-run." -ForegroundColor Gray
+    Write-Host "Note: this takes Ctrl+Space from every other app (e.g. VS Code's 'trigger suggest' — add `"Code`" to hotkey.passthroughApps to keep it there). To use another combo, set hotkey.keys in tms.config.json and re-run." -ForegroundColor Gray
 }
 
 Write-Host "`n🎉 DONE" -ForegroundColor Magenta

@@ -176,10 +176,14 @@ in `settings.json`: your `profiles.defaults` would override the font size of
 anything else.) Your settings from before ztms first touched them are kept
 as `settings.json.ztms-backup` next to it.
 
-The hotkey is global, so it takes Ctrl+Space away from every other app
-(e.g. VS Code's "trigger suggest"). Pick another combo with `hotkey.keys`
-in `tms.config.json` (e.g. `"Ctrl+Alt+Space"`, `"Win+Shift+Z"`). Listener
-errors go to `%TEMP%\ztms-hotkey.log`.
+The hotkey is global, so it takes Ctrl+Space away from other apps — except
+the ones in `hotkey.passthroughApps` (default: Visual Studio, where Ctrl+Space
+is Complete Word). With one of those in front, Ctrl+Space goes to the app as
+usual; press it **twice quickly** to open ztms. Add e.g. `"Code"` to keep
+VS Code's "trigger suggest" too, or pick another combo with `hotkey.keys` in
+`tms.config.json` (e.g. `"Ctrl+Alt+Space"`, `"Win+Shift+Z"`). Re-run
+**SETUP > install-hotkey** after changing either. Listener errors go to
+`%TEMP%\ztms-hotkey.log`.
 
 ## Uninstall
 
@@ -255,6 +259,7 @@ working directory, e.g.:
 | `httptoolkit.*` | Optional `{ repoPath, gitUrl, branch, deployDir }` for the HTTPTOOLKIT menu group — `repoPath` is an existing clone or where to clone `gitUrl`; `branch` is checked out by install; `deployDir` (optional) is persisted as `HTK_DEPLOY_DIR`. Entries are hidden when `repoPath` is blank |
 | `pms.dev.*` | Optional `{ root, updateUrl, product, passwordEnvVar }` for the PMS menu group — `root` is the PMS install folder (e.g. `D:\PMS\PMSDev`), `updateUrl` the update server (the `NewUpdateUrl` in `PMSSetup.exe.config`), `product` defaults to `PMSx64`. PMS entries are hidden when `root` is blank |
 | `hotkey.keys` | Optional global hotkey for SETUP > install-hotkey, e.g. `"Ctrl+Space"` (default when missing), `"Ctrl+Alt+Z"`, `"Win+Shift+F1"` — modifiers `Ctrl`/`Alt`/`Shift`/`Win` plus one key; at least one modifier required |
+| `hotkey.passthroughApps` | Optional array of process names (`.exe` optional) that keep the hotkey for themselves: pressed with one in front it goes to that app, pressed twice quickly it opens ztms. Default `["devenv"]` (Visual Studio) when missing; `[]` = none. Doesn't work for an app running as administrator (Windows blocks the keystroke) — there a single press does nothing. Re-run SETUP > install-hotkey after changing it |
 | `hotkey.widthPercent` / `hotkey.heightPercent` / `hotkey.searchHeightPercent` | Optional size of the hotkey's ztms window as a percentage of the screen's work area, clamped to 20–100: width (default `50`), height while a script runs (`80`), and height of the search box it opens as (`35`). The window is always on the screen under the mouse, centered left to right, and never maximized, whatever Windows Terminal's `launchMode` says |
 | `hotkey.topPercent` | Optional height on screen of the hotkey's window, `0`–`100`: how much of the space left above + below it goes above (default `35`, a bit above the middle; `50` = centered, `0` = at the top) |
 | `hotkey.fontSize` / `hotkey.padding` | Optional font size (default `14`, clamped 6–48) and padding in px (default `16`, 0–64) of the hotkey window's Windows Terminal profile. Re-run SETUP > install-hotkey after changing them |

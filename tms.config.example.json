@@ -65,6 +65,7 @@
   },
   "hotkey": {
     "keys": "Ctrl+Space",
+    "passthroughApps": ["devenv"],
     "widthPercent": 50,
     "heightPercent": 80,
     "searchHeightPercent": 35,
