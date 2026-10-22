@@ -112,6 +112,10 @@ $config = Get-TmsConfig
   `emulator -list-avds`, and `Select-TmsAvd` wraps that with the
   `Show-Menu` picker (from `ProjectMenu.psm1`, which callers must also
   import) — shared by `android/start*.ps1` and `android/stop.ps1`.
+  `Start-TmsAndroidEmulator` opens the emulator in a new wt tab (or its own
+  window outside WT), but runs it hidden when `$env:ZTMS_SPOTLIGHT` is set —
+  `ztms.ps1 --spotlight` sets it for the scripts it runs, since a tab in the
+  focus-mode hotkey window would cover the search box and die with it.
   `Get-TmsAndroidDeployConfig` guard-checks `config.android.deploy.<env>`
   (`apiUrl`/`apiKey`/`appId`/`userActionId` per environment, e.g. `dev`/
   `stg` — each is a different host, AppId, and UserActionId against the

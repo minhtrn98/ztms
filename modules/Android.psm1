@@ -253,6 +253,10 @@ function Start-TmsAndroidEmulator {
     a new tab titled with the AVD name in the current window
     (`wt -w 0 new-tab`); anywhere else (VS Code's integrated terminal, plain
     conhost) it falls back to Start-Process, which opens its own pwsh window.
+    From the hotkey window ($env:ZTMS_SPOTLIGHT, set by ztms.ps1 --spotlight)
+    it runs hidden instead: that window is in focus mode (no tab row), so a
+    new tab would cover the search box, and closing the window would kill
+    the emulator with it.
     The emulator command is passed via -EncodedCommand so paths with spaces
     and wt's own `;` argument parsing can't mangle it.
     #>
@@ -271,7 +275,9 @@ function Start-TmsAndroidEmulator {
     $pwshArgs = @("-NoLogo", "-NoProfile", "-EncodedCommand", $encoded)
 
     $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
-    if ($env:WT_SESSION -and $wt) {
+    if ($env:ZTMS_SPOTLIGHT) {
+        Start-Process -FilePath $pwsh -ArgumentList $pwshArgs -WindowStyle Hidden
+    } elseif ($env:WT_SESSION -and $wt) {
         & $wt.Source -w 0 new-tab --title $Avd --suppressApplicationTitle $pwsh @pwshArgs
     } else {
         Start-Process -FilePath $pwsh -ArgumentList $pwshArgs

@@ -23,6 +23,9 @@
 # no grouped list, in a short window that grows while a script runs.
 $spotlight = @($args) -contains '--spotlight'
 $targetArgs = @($args | Where-Object { $_ -ne '--spotlight' })
+# Inherited by the scripts it runs, so they can tell they're in the hotkey
+# window (e.g. Start-TmsAndroidEmulator doesn't open a tab in it)
+if ($spotlight) { $env:ZTMS_SPOTLIGHT = '1' }
 
 # The hotkey window's search line (double-size text): the ztms tag, then the
 # label, then what you type — and under it, while nothing's typed yet, the
